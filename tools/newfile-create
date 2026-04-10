@@ -1,0 +1,172 @@
+#!/usr/bin/env bash
+
+#    SPDX-FileCopyrightText: 2021 Monaco F. J. <https://github.com/monacofj>
+#
+#    SPDX-License-Identifier: GPL-3.0-or-later
+#
+#    This file is part of SYSeg - https://github.com/monacofj/syseg.
+
+
+function usage()
+{
+    echo "Usage: $(basename $0) [options] <file name>"
+}
+
+
+function help()
+{
+    usage
+    echo
+    echo "       options:"
+    echo
+    echo "       -f              force overwrite if file exists"
+    echo "       -h              output this help message and quits"
+    echo "       -v              output version and exit"
+    echo
+}
+
+ORIGIN=$(dirname "$0")
+
+overwrite=0
+while getopts "vhf" opt; do
+    case $opt in
+	h)
+	    help
+	    exit 0
+	    ;;
+	v)
+	    cat $ORIGIN/../.version
+	    exit 0
+	    ;;
+	f)
+	    overwrite=1;
+	    ;;
+    esac
+done
+shift "$(($OPTIND -1))"
+
+FILEPATH=$1
+if test -z "$FILEPATH"; then
+    usage
+    exit 1
+fi
+
+BASENAME=$(basename "$FILEPATH")
+
+
+if test "$overwrite" -eq 0 && test -f "$FILEPATH" ; then
+    echo "File already exists: $FILEPATH. Aborted."
+    echo "use option -f to force overwrite."
+   exit 1
+fi
+
+
+case $BASENAME in
+
+    *.h)
+ 	macro=${BASENAME^^}
+ 	macro=${macro/./_}
+	echo "#ifndef $macro" > "$FILEPATH"
+	echo "#define $macro" >> "$FILEPATH"
+	echo "" >> "$FILEPATH"
+	echo "#endif  /* $macro  */" >> "$FILEPATH"
+	;;
+
+    Makefile.m4)
+		cat<<EOF > "$FILEPATH"
+include(docm4.m4)dnl
+
+## Makefile automation rules.
+##
+## SYSeg creates and automatically updates this Makefile from the source
+## Makefile.m4 template, so as to reflect changes in the project's design
+## and auxiliary resources. The next rules serve this purpose and are not
+## relevant for the code examples in this directory.
+
+init: all
+
+DOCM4_UPDATE
+
+## Relevant rules for the code examples in this directory.
+##
+## The following rules are part of the relevant content of this directory.
+## They are meant both as a convenience for building the code examples and
+## as a reference for understanding the details of the build process.
+
+all:
+
+.PHONY: clean
+
+clean:
+
+dnl
+dnl Uncomment to include bintools
+dnl
+dnl
+dnl DOCM4_MAKE_BINTOOLS
+
+EOF
+	;;
+
+    README.m4)
+		cat <<EOF > "$FILEPATH"
+include(docm4.m4)
+
+ Title
+ ==============================
+
+dnl DOCM4_INSTRUCTIONS
+
+ Contents
+ ------------------------------
+
+dnl DOCM4_BINTOOLS_DOC
+
+EOF
+	;;
+
+    Makefile.am)
+		cat<<EOF > "$FILEPATH"
+
+##
+## Example directory setup.
+##
+
+# Build rules specifics to the example in this directory.
+
+BUILDRULES = build.mk
+
+# Uncomment to include optional tools in the Makefile.
+
+include \$(TOOL_DIR)/bintools.mk   # Convenience rules for binary inspection.
+
+# List the files to include in the export bundle, if any.
+
+BUNDLE_FILES = main.c README
+
+BUNDLE_TOOLS  = bintools.mk
+
+##
+## Common deffinitons for example directories, not related to the examples.
+##
+
+include \$(TOOL_DIR)/example.mk
+
+
+EOF
+	;;
+
+    build.mk)
+		cat <<EOF > "$FILEPATH"
+
+#
+# Build rules specific to this code example.
+#
+
+EOF
+	;;
+
+    *)
+		touch "$FILEPATH"
+
+esac
