@@ -6,7 +6,7 @@
 # Process this file with autoconf to produce a configure script.
 
 AC_PREREQ([2.71])
-AC_INIT([SYSeg], [1.1.0-beta], [monaco@.usp.br])
+AC_INIT([SYSeg], [0.2.0], [monaco@.usp.br])
 AC_CONFIG_SRCDIR([docs/syseg.md])
 AC_CONFIG_HEADERS([config.h])
 AC_CONFIG_MACRO_DIR([m4])

@@ -80,6 +80,10 @@ The project root contains the following top-level subdirectories:
 Each of these subdirectories includes a `README` file that further explains
 its contents and provides guidance on how to explore it.
 
+**Note**: this repository is an ongoing complete refactoring of SYSeg v0.1.0. 
+The migration is being carried out in stages, so some parts of the former 
+release may still be unavailable here. 
+
 Documentation
 ------------------------------
 
