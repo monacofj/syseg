@@ -1,6 +1,6 @@
-# SPDX-FileCopyrightText: 2021 Monaco F. J. <https://github.com/monacofj>
+# SPDX-FileCopyrightText: NONE
 #
-# SPDX-License-Identifier: GPL-3.0-or-later
+# SPDX-License-Identifier: CC0-1.0
 #
 # This file is part of SYSeg (https://github.com/monacofj/syseg)
 
@@ -66,3 +66,4 @@ Makefile
 **/*~
 
 .codex
+.newfile

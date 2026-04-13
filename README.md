@@ -1,109 +1,116 @@
 <!--
-   SPDX-FileCopyrightText: 2001 Monaco F. J. <monaco@usp.br>
+   SPDX-FileCopyrightText: 2001 Monaco F. J. <https://github.com/monacofj>
   
-   SPDX-License-Identifier: GPL-3.0-or-later
+   SPDX-License-Identifier: CC-BY-SA-4.0
 
    This file is part of SYSeg, available at https://github.com/monacofj/syseg.
 -->
 
-> Copyright (c) 2021 Monaco F. J. <monaco@usp.br>  
->
-> This project is distributed under the GNU General Public License v3.0 or later.
-> See the file LICENSE for more information. Some third-party components or
-> specific files may be licensed under different terms. Please, consult the SPDX
-> identifiers in each file's header and the LICENSES/ directory for precise details. 
+_SYSeg - Copyright (c) 2021 Monaco F. J. <monaco@usp.br>_ 
 
- SYSeg - System Software by Example
- ========================================
- SYSeg (System Software, e.g.) is a collection of source-code examples and 
- programming exercises intended to illustrate general concepts and techniques 
- related to system software design and implementation.
+_SYSeg is released under the GNU General Public License v3.0 or later. See  
+Licensing terms below for details._ 
 
- About
- -------------------------------------------
+SYSeg - System Software by Example
+========================================
+
+SYSeg (System Software, e.g.) is a compilation of source-code examples and
+programming exercises illustrating general concepts and techniques related to
+system-software design and implementation, drawn from university-level Computer
+Science and Engineering courses taught by the author.
+
+The content may be useful to both students and instructors working with
+low-level programming, either as a complementary reference for a structured
+teaching program or as a self-learning resource for those pursuing a
+ground-up understanding of:
+
+- how build tools work internally to transform source code into machine code;
+- what is inside an executable program and how it interacts with other software;
+- how the inner workings of operating systems and related tools are implemented.
+
+Featured topics include the Application Binary Interface (ABI), runtime systems,
+build toolchains (compiler, assembler, linker), dynamic loading, shared
+libraries, address relocation, position-independent code (PIC), the POSIX
+standard, file systems, and build automation, among others.
+
+The official SYSeg repository is at https://github.com/monacofj/syseg.
+
+Quick start
+-----------------------------------------------
+
+Most code examples in this project require auxiliary artifacts that must be
+built beforehand. Proceed as follows, depending on whether you are using the
+development version cloned from the repository (which always reflects the latest
+updates) or a release package downloaded as a compressed archive (corresponding
+to a particular vX.Y.Z release).
+
+1. If you cloned the repository, you will need to bootstrap the project's
+   build infrastructure and then configure and build the tools.
+
+```
+   cd syseg
+   ./bootstrap.sh
+   ./configure
+   make
+```
+
+   The scripts may prompt you to install a few required tools.
+
+2. If you downloaded a release package, it should already include the build
+   infrastructure, so you will only need to configure and build the tools.
+
+```
+   cd syseg
+   ./configure
+   make
+```
+
+Content overview
+------------------------------
+
+The project root contains the following top-level subdirectories:
+
+- `eg` main source-code examples
+- `try` suggested programming exercises
+- `tools` auxiliary tools used by examples and exercises
+- `docs` SYSeg documentation
+- `arcana` esoteric features, forbidden arts, and hacker lore
+- `draft` work-in-progress material (potentially incomplete)
+
+Each of these subdirectories includes a `README` file that further explains
+its contents and provides guidance on how to explore it.
+
+Documentation
+------------------------------
+
+Please see:
+
+- `docs/syseg.md` for further usage instructions
+- `AUTHORS` for the list of authors and contribution acknowledgements
+- `docs/ai_policy.md` for AI assistance disclosure and intellectual integrity
+- `CONTRIBUTING.md` for information on how to contribute to this project
+
+Feedback
+------------------------------
+
+If you have used SYSeg for self-study, in a course, or as part of a teaching
+program, the author would be very glad if you could drop a note to say that the
+material has been useful.
+
+Also, the low-level landscape is often shaped by subtle details, historical
+quirks, and intricate platform-specific behavior. Despite every effort,
+technical problems or conceptual inaccuracies may still have passed unnoticed.
+If you come across anything of the sort, please consider reporting it.
+
+Licensing
+-------------------------------
  
- SYSeg has been compiled from class notes in undergraduate and graduate courses 
- in Computer Science and Engineering, and is meant to  be useful for students
- and instructors interested in low-level programming, either as a self-learning
- resource or as part of a systematized teaching material.
+SYSeg is free software: you can redistribute it and/or modify it under 
+the terms of the GNU General Public License, either version 3 of the License, 
+or (at your option) any later version. You should have received a copy of the 
+GNU General Public License along with this software.  If not, see 
+<https://www.gnu.org/licenses/>
 
- The collection addresses concepts such as application binary interface
- (ABI), runtime system, program build chain, operating systems and related
- subjects, with source-code examples illustrating the implementation of
- shared libraries, dynamic linking, address relocation, position-independent
- code, POSIX API, file systems, build automation, among other topics.
-
- SYSeg official repository is at https https://github.com/monacofj/syseg.
-
- Currently, the material is mainly focused on the x86 platform.
-
-
- Quick start
- -----------------------------------------------
-
- Before you dig into the contents, read this.
- 
- Most code examples and programming exercises require auxiliary artifacts 
- (including the documentation!) which must be built beforehand. 
-
- In order to get those items built you **must** perform the setup procedure.
-
- Please, read `doc/syseg.md` and proceed as explained.
-
- There you will also find instructions on how to use SYSeg code examples,
- as well as the requirements and dependencies your system needs to meet
- in order to build and execute SYSeg tools.
-
- **IMPORTANT**
-
- In case you have rushed through this file and has not been convinced to read
- the essential documentation, this is an encouragement note:
-
- **please, do read `doc/syseg.md`**
-
- It'll assuredly save you time
-
- (this file is named `README` for a reason).
-
- Content overview
- ------------------------------
- 
- SYSeg contents. 
-
- - Directory `eg`    contains the main source code examples.
- - Directory `try`   contains suggested programming exercises.
- - Directory `tools` contains auxiliary tools used by examples and exercises.
- - Directory `doc`   contains SYSeg documentation.
- - Directory `extra` contains side notes, arcane features and hacker lore.
- - Directory `draft` contains work-in-progress material (likely buggy)
-
- Each subdirectory contains a `README` file further explaining its contents.
- 
- Contributing
- ------------------------------
- 
- Should you like to contribute code, please, refer to the file
- `CONTRIBUTING.md`.
-
- Bug reports and suggestions are always welcome.
-
- Feel free to open and issue at the version-control repository.
-
- The file `AUTHORS` lists all contributors and acknowledgments, with
- respective contact information.
-
- I have a matter
- ------------------------------
-
- SYSeg is a work in progress and, as such, may contain suboptimal code and
- potential technical innacuracies resulting of reliance on imprecise or misleading
- references. If you ever detect one such problem, it would be great if you could 
- drop the author a note.
- 
- If it is not much trouble, please open an issue at the repository and
- apply it the lable 'matter'. There, explain what should be improved
- (well, if you are in the mood of submitting a PR/MR, that would be great!)
-
-
- 
- 
+Some third-party components or specific files may be licensed under different 
+terms. Please consult each file's header and the LICENSES/ directory for 
+precise details. 
