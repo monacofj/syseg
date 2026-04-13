@@ -74,7 +74,7 @@ The project root contains the following top-level subdirectories:
 - `try` suggested programming exercises
 - `tools` auxiliary tools used by examples and exercises
 - `docs` SYSeg documentation
-- `arcana` esoteric features, forbidden arts, and hacker lore
+- `arcane` esoteric features, forbidden arts, and hacker lore
 - `draft` work-in-progress material (potentially incomplete)
 
 Each of these subdirectories includes a `README` file that further explains
