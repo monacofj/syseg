@@ -5,5 +5,6 @@
 #
 # This file is part of SYSeg (https://github.com/monacofj/syseg)
 
+ACLOCAL_AMFLAGS = -I m4
 
 SUBDIRS = eg

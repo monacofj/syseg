@@ -59,4 +59,4 @@ check_cmd libtoolize glibtoolize
 
 # Autoreconf
 
-autoreconf --install
+autoreconf --install --verbose
