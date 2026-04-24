@@ -201,8 +201,8 @@ arch_i64 := i386:x86-64
 ## Prepare bootable disk images
 ##
 
-CSM_64 ?= csmwrapx64.efi      # Wraps a 64-bit UEFI firmware for legacy booting
-CSM_32 ?= csmwrapia32.efi     # Wraps a 32-bit UEFI firmware for legacy booting
+CSM_64 ?= $(TOOLS_PATH)/csmwrapx64.efi # Wraps a 64-bit UEFI firmware for legacy booting
+CSM_32 ?= $(TOOLS_PATH)/csmwrapia32.efi # Wraps a 32-bit UEFI firmware for legacy booting
 DISK_SECTORS ?= 262144        # 128 MiB disk image
 PART1_START ?= 2048           # Start of the first partition in sectors (1 MiB)
 SECTOR_SIZE ?= 512            # Size of a sector in bytes
@@ -213,32 +213,20 @@ PART1_LAST_SECTOR := $(shell echo $$(($(DISK_SECTORS) - 1)))
 # This the MBR bootstrap code, which is responsible for loading the VBR code
 # (e.g. booloader) from the active partition and transferring control to it.
 
-mbr-fat32.S : $(TOOLS_PATH)/mbr-fat32.S
-	cp $< $@
-
-mbr-fat32.ld: $(TOOLS_PATH)/mbr-fat32.ld
-	cp $< $@
-
-mbr-fat32.o : mbr-fat32.S
+mbr-fat32.o : $(TOOLS_PATH)/mbr-fat32.S
 	as --32 $< -o $@
 
-mbr-fat32.bin : mbr-fat32.o mbr-fat32.ld
-	ld -melf_i386 -T mbr-fat32.ld $< -o $@
+mbr-fat32.bin : mbr-fat32.o $(TOOLS_PATH)/mbr-fat32.ld
+	ld -melf_i386 -T $(TOOLS_PATH)/mbr-fat32.ld $< -o $@
 	
 # This is the VBR code for FAT32, containing the initialization program
 # (e.g.) bootloader loaded by BIOS in the legacy booting process. 
 
-vbr-fat32.S : $(TOOLS_PATH)/vbr-fat32.S
-	cp $< $@
-
-vbr-fat32.ld: $(TOOLS_PATH)/vbr-fat32.ld
-	cp $< $@
-
 #hello.o : hello.S
 #	as --32 $< -o $@
 
-%.vbr : %.o vbr-fat32.ld
-	ld -melf_i386 -T vbr-fat32.ld $< -o $@
+%.vbr : %.o $(TOOLS_PATH)/vbr-fat32.ld
+	ld -melf_i386 -T $(TOOLS_PATH)/vbr-fat32.ld $< -o $@
 
 
 # For legacy BIOS booting.
@@ -271,9 +259,6 @@ vbr-fat32.ld: $(TOOLS_PATH)/vbr-fat32.ld
 	mcopy -i $@@@$(PART1_OFFSET) $< ::/EFI/BOOT/BOOTX64.EFI
 
 # Prepare a FAT32 disk image for legacy booting from a UEFI via CSM.  
-
-$(CSM_32) $(CSM_64): % : $(TOOLS_PATH)/%
-	cp $< $@
 
 %.csm : %.vbr mbr-fat32.bin $(CSM_64) $(CSM_32)
 	rm -f $@
@@ -324,13 +309,3 @@ SMP ?= 2                     # Number of CPU cores to allocate for QEMU
 $(OVMF_VARS_LOCAL): $(OVMF_VARS_TEMPLATE)
 	cp $< $@
 
-
-##
-## Housekeeping
-##
-
-CLEANFILES += \
-	mbr-fat32.S \
-	mbr-fat32.ld \
-	vbr-fat32.S \
-	vbr-fat32.ld
