@@ -7,4 +7,8 @@
 
 # Build rules specifics to the example in this directory.                                   
 
-include build.mk
+include @MANUAL_BUILD_RULES@
+
+include @TOOLS_PATH@/bintools.mk
+
+clean-local: manual-clean
