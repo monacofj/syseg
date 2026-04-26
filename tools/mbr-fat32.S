@@ -18,6 +18,14 @@
 	.global _start
 
 _start:
+	jmp   boot_start
+
+	# Some BIOS implementations touch the BPB-looking area after loading a
+	# boot sector; at this point they do not know whether it is an MBR or a
+	# VBR.  Keep the real bootstrap code past the FAT32 BPB area.
+	.zero 0x5a - (. - _start)
+
+boot_start:
 	cli
 	xorw  %ax, %ax
 	movw  %ax, %ds
