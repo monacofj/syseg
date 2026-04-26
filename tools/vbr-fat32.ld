@@ -7,4 +7,9 @@ SECTIONS
 		*(.text)
 		*(.rodata)
 	      }
+	/DISCARD/ :
+	      {
+		*(*)
+	      }
+	ASSERT(. <= 0x7c00 + 510, "VBR bootstrap exceeds boot sector")
 }

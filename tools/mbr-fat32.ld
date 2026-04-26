@@ -8,5 +8,9 @@ SECTIONS
 		*(.rodata)
 		*(.data)
 	      }
+	/DISCARD/ :
+	      {
+		*(*)
+	      }
 	ASSERT(SIZEOF(.text) <= 446, "MBR bootstrap exceeds 446 bytes")
 }
