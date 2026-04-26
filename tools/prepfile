@@ -1,0 +1,520 @@
+#!/usr/bin/env python3
+
+# SPDX-FileCopyrightText: 2026 Monaco F. J. <https://github.com/monacofj>
+#
+# SPDX-License-Identifier: GPL-3.0-or-later
+
+from __future__ import annotations
+
+import argparse
+import json
+import os
+import re
+import subprocess
+import sys
+from dataclasses import dataclass
+from datetime import date
+from pathlib import Path
+
+
+CONFIG_DIRNAME = ".prepfile"
+CONFIG_FILENAME = "config"
+SYSTEM_TEMPLATE_DIR = Path("/usr/lib/prepfile/templates")
+BUNDLED_TEMPLATE_DIRNAME = "prepfile-templates"
+REUSE_TEMPLATE = "default"
+PROJECT_MARKERS = (
+    CONFIG_DIRNAME,
+    ".git",
+    "configure.ac",
+    "pyproject.toml",
+    "REUSE.toml",
+    "LICENSE",
+    "COPYING",
+)
+VERSION_PATTERN = re.compile(r"AC_INIT\(\[[^]]+\],\s*\[([^]]+)\]")
+COMMON_LICENSE_IDS = (
+    "GPL-3.0-or-later",
+    "LGPL-3.0-or-later",
+    "GPL-3.0-only",
+    "LGPL-3.0-only",
+    "MIT",
+    "BSD-3-Clause",
+    "Apache-2.0",
+    "CC-BY-SA-4.0",
+)
+
+
+@dataclass
+class Config:
+    confirmed: bool
+    author_name: str
+    author_email: str
+    license_spdx: str
+
+
+class PrepfileArgumentParser(argparse.ArgumentParser):
+    def format_help(self) -> str:
+        intro = (
+            "prepfile is a convenience wrapper around the reuse tool for quick file preparation.\n"
+            "\n"
+        )
+        return intro + super().format_help()
+
+
+def parse_args() -> argparse.Namespace:
+    parser = PrepfileArgumentParser(prog="prepfile")
+    parser.add_argument(
+        "-n",
+        "--new",
+        action="store_true",
+        help="create the file from a template if it does not exist",
+    )
+    parser.add_argument(
+        "-a",
+        "--accept",
+        action="store_true",
+        help="mark .prepfile/config as reviewed and proceed",
+    )
+    parser.add_argument(
+        "--root",
+        type=Path,
+        help="use this project root instead of discovering it",
+    )
+    parser.add_argument(
+        "-v",
+        "--version",
+        action="store_true",
+        help="show version information and exit",
+    )
+    parser.add_argument(
+        "--licenses",
+        action="store_true",
+        help="list common SPDX licenses supported by reuse and exit",
+    )
+    parser.add_argument(
+        "--licenses-all",
+        action="store_true",
+        help="list all SPDX licenses supported by reuse and exit",
+    )
+    parser.add_argument("filepath", nargs="?", help="file to prepare")
+    return parser.parse_args()
+
+
+def script_dir() -> Path:
+    return Path(__file__).resolve().parent
+
+
+def repo_version(project_root: Path) -> str:
+    configure_ac = project_root / "configure.ac"
+    if not configure_ac.is_file():
+        return "0.0.0"
+
+    match = VERSION_PATTERN.search(configure_ac.read_text(encoding="utf-8"))
+    return match.group(1) if match else "0.0.0"
+
+
+def iter_ancestors(start: Path) -> list[Path]:
+    current = start.resolve()
+    return [current, *current.parents]
+
+
+def find_root_from(start: Path, markers: tuple[str, ...]) -> Path | None:
+    for candidate in iter_ancestors(start):
+        if any((candidate / marker).exists() for marker in markers):
+            return candidate
+    return None
+
+
+def discover_project_root(target: Path | None, explicit_root: Path | None) -> Path:
+    if explicit_root is not None:
+        return explicit_root.resolve()
+
+    env_root = os.environ.get("PREPFILE_ROOT")
+    if env_root:
+        return Path(env_root).resolve()
+
+    start_points = [Path.cwd()]
+    if target is not None:
+        start_points.append((Path.cwd() / target).resolve().parent)
+    start_points.append(script_dir().parent)
+
+    for start in start_points:
+        root = find_root_from(start, (CONFIG_DIRNAME,))
+        if root is not None:
+            return root
+
+    for start in start_points:
+        root = find_root_from(start, PROJECT_MARKERS[1:])
+        if root is not None:
+            return root
+
+    if target is not None:
+        return (Path.cwd() / target).resolve().parent
+    return Path.cwd().resolve()
+
+
+def config_path(project_root: Path) -> Path:
+    return project_root / CONFIG_DIRNAME / CONFIG_FILENAME
+
+
+def template_dirs(project_root: Path) -> list[Path]:
+    return [
+        project_root / CONFIG_DIRNAME / "templates",
+        script_dir() / BUNDLED_TEMPLATE_DIRNAME,
+        SYSTEM_TEMPLATE_DIR,
+    ]
+
+
+def read_key_values(path: Path) -> dict[str, str]:
+    values: dict[str, str] = {}
+    for raw_line in path.read_text(encoding="utf-8").splitlines():
+        line = raw_line.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+        key, value = line.split("=", 1)
+        values[key.strip()] = value.strip()
+    return values
+
+
+def load_config(path: Path) -> Config:
+    values = read_key_values(path)
+    return Config(
+        confirmed=values.get("confirmed", "no").lower() == "yes",
+        author_name=values.get("author_name", ""),
+        author_email=values.get("author_email", ""),
+        license_spdx=values.get("license_spdx", ""),
+    )
+
+
+def format_config(config: Config) -> str:
+    confirmed = "yes" if config.confirmed else "no"
+    return (
+        "# Review this file before first use.\n"
+        "# prepfile will not modify target files until confirmed=yes.\n"
+        f"confirmed={confirmed}\n"
+        f"author_name={config.author_name}\n"
+        f"author_email={config.author_email}\n"
+        f"license_spdx={config.license_spdx}\n"
+    )
+
+
+def git_config(project_root: Path, key: str) -> str:
+    try:
+        result = subprocess.run(
+            ["git", "-C", str(project_root), "config", "--get", key],
+            check=False,
+            capture_output=True,
+            text=True,
+        )
+    except FileNotFoundError:
+        return ""
+    return result.stdout.strip() if result.returncode == 0 else ""
+
+
+def discovered_defaults(project_root: Path) -> Config:
+    return Config(
+        confirmed=False,
+        author_name=git_config(project_root, "user.name"),
+        author_email=git_config(project_root, "user.email"),
+        license_spdx="GPL-3.0-or-later",
+    )
+
+
+def merge_missing_config_values(config: Config, defaults: Config) -> Config:
+    return Config(
+        confirmed=config.confirmed,
+        author_name=config.author_name or defaults.author_name,
+        author_email=config.author_email or defaults.author_email,
+        license_spdx=config.license_spdx or defaults.license_spdx,
+    )
+
+
+def supported_licenses() -> list[dict[str, str]]:
+    try:
+        result = subprocess.run(
+            ["reuse", "supported-licenses", "--json"],
+            check=False,
+            capture_output=True,
+            text=True,
+        )
+    except FileNotFoundError:
+        print(
+            "Could not find `reuse`; cannot validate license_spdx.",
+            file=sys.stderr,
+        )
+        raise SystemExit(1)
+
+    if result.returncode != 0:
+        if result.stdout:
+            print(result.stdout, file=sys.stderr, end="")
+        if result.stderr:
+            print(result.stderr, file=sys.stderr, end="")
+        print(
+            "Could not retrieve the list of supported SPDX licenses from `reuse`.",
+            file=sys.stderr,
+        )
+        raise SystemExit(result.returncode)
+
+    try:
+        data = json.loads(result.stdout)
+    except json.JSONDecodeError:
+        print(
+            "Could not parse the supported license list returned by `reuse`.",
+            file=sys.stderr,
+        )
+        raise SystemExit(1)
+
+    return [
+        item
+        for item in data
+        if isinstance(item, dict) and isinstance(item.get("id"), str)
+    ]
+
+
+def supported_license_ids() -> set[str]:
+    return {item["id"] for item in supported_licenses()}
+
+
+def print_license_list(all_licenses: bool) -> None:
+    licenses = supported_licenses()
+    if all_licenses:
+        selected = licenses
+    else:
+        by_id = {
+            item["id"]: item
+            for item in licenses
+            if isinstance(item, dict) and isinstance(item.get("id"), str)
+        }
+        selected = [by_id[license_id] for license_id in COMMON_LICENSE_IDS if license_id in by_id]
+
+    for item in selected:
+        name = item.get("name", "")
+        print(f"{item['id']}\t{name}")
+
+
+def initialize_config(project_root: Path) -> Path:
+    config_dir = project_root / CONFIG_DIRNAME
+    config_dir.mkdir(parents=True, exist_ok=True)
+    (config_dir / "templates").mkdir(parents=True, exist_ok=True)
+
+    config = discovered_defaults(project_root)
+    path = config_path(project_root)
+    path.write_text(format_config(config), encoding="utf-8")
+    return path
+
+
+def show_config_for_review(path: Path) -> str:
+    return f"{path}\n\n{path.read_text(encoding='utf-8')}"
+
+
+def ensure_confirmed_config(project_root: Path, accept: bool) -> Config:
+    path = config_path(project_root)
+    if not path.exists():
+        created = initialize_config(project_root)
+        print(
+            "Created project configuration; please review it and rerun with "
+            f"--accept:\n\n{show_config_for_review(created)}",
+            file=sys.stderr,
+        )
+        raise SystemExit(1)
+
+    original_config = load_config(path)
+    config = merge_missing_config_values(original_config, discovered_defaults(project_root))
+    if config != original_config:
+        path.write_text(format_config(config), encoding="utf-8")
+
+    if not config.confirmed and not accept:
+        print(
+            "Project configuration is not confirmed. Review the file and rerun "
+            f"with --accept:\n\n{show_config_for_review(path)}",
+            file=sys.stderr,
+        )
+        raise SystemExit(1)
+
+    if accept and not config.confirmed:
+        validate_config(config, path)
+        config.confirmed = True
+        path.write_text(format_config(config), encoding="utf-8")
+
+    return config
+
+
+def validate_config(config: Config, path: Path) -> None:
+    missing: list[str] = []
+    if not config.author_name:
+        missing.append("author_name")
+    if not config.author_email:
+        missing.append("author_email")
+    if not config.license_spdx:
+        missing.append("license_spdx")
+
+    if missing:
+        print(
+            "Cannot confirm configuration because required fields are missing "
+            f"from {path}: {', '.join(missing)}",
+            file=sys.stderr,
+        )
+        raise SystemExit(1)
+
+    supported = supported_license_ids()
+    if config.license_spdx not in supported:
+        print(
+            "Cannot confirm configuration because license_spdx is not supported "
+            f"by `reuse`: {config.license_spdx}\n"
+            "Use `prepfile --licenses` or `prepfile --licenses-all` to inspect "
+            "valid SPDX identifiers.",
+            file=sys.stderr,
+        )
+        raise SystemExit(1)
+
+
+def header_guard_for(path: Path) -> str:
+    guard = re.sub(r"[^A-Za-z0-9]+", "_", path.name.upper())
+    return guard.strip("_") or "HEADER_GUARD"
+
+
+def template_context(target: Path, config: Config) -> dict[str, str]:
+    return {
+        "{{FILENAME}}": target.name,
+        "{{BASENAME}}": target.stem,
+        "{{EXTENSION}}": target.suffix[1:],
+        "{{HEADER_GUARD}}": header_guard_for(target),
+        "{{YEAR}}": str(date.today().year),
+        "{{AUTHOR_NAME}}": config.author_name,
+        "{{AUTHOR_EMAIL}}": config.author_email,
+        "{{LICENSE_ID}}": config.license_spdx,
+    }
+
+
+def find_template(target: Path, project_root: Path) -> Path | None:
+    basename = target.name
+    extension = target.suffix
+    for base in template_dirs(project_root):
+        exact = base / basename
+        if exact.is_file():
+            return exact
+        if extension:
+            by_extension = base / f"_{extension}"
+            if by_extension.is_file():
+                return by_extension
+    return None
+
+
+def render_template(template: Path, context: dict[str, str]) -> str:
+    text = template.read_text(encoding="utf-8")
+    for key, value in context.items():
+        text = text.replace(key, value)
+    return text
+
+
+def create_target_file(target: Path, project_root: Path, config: Config) -> None:
+    if target.exists():
+        return
+
+    template = find_template(target, project_root)
+    if template is None:
+        target.touch()
+        return
+
+    rendered = render_template(template, template_context(target, config))
+    target.write_text(rendered, encoding="utf-8")
+
+
+def copyright_holder(config: Config) -> str:
+    if config.author_email:
+        return f"{config.author_name} <{config.author_email}>"
+    return config.author_name
+
+
+def annotate_file(target: Path, config: Config) -> None:
+    holder = copyright_holder(config)
+    year = str(date.today().year)
+
+    try:
+        result = subprocess.run(
+            [
+                "reuse",
+                "annotate",
+                "-c",
+                holder,
+                "-y",
+                year,
+                "-l",
+                config.license_spdx,
+                "-t",
+                REUSE_TEMPLATE,
+                str(target),
+            ],
+            check=False,
+            capture_output=True,
+            text=True,
+        )
+    except FileNotFoundError:
+        print("Could not find `reuse`; install it and try again.", file=sys.stderr)
+        raise SystemExit(1)
+
+    if result.returncode != 0:
+        if result.stdout:
+            print(result.stdout, file=sys.stderr, end="")
+        if result.stderr:
+            print(result.stderr, file=sys.stderr, end="")
+        raise SystemExit(result.returncode)
+
+
+def ensure_target(args: argparse.Namespace) -> Path | None:
+    if args.filepath is None:
+        if args.accept or args.licenses or args.licenses_all:
+            return None
+        print("missing file name", file=sys.stderr)
+        raise SystemExit(2)
+    return Path(args.filepath)
+
+
+def main() -> int:
+    args = parse_args()
+
+    if args.version:
+        project_root = discover_project_root(None, args.root)
+        print(repo_version(project_root))
+        return 0
+
+    if args.licenses:
+        print_license_list(all_licenses=False)
+        return 0
+
+    if args.licenses_all:
+        print_license_list(all_licenses=True)
+        return 0
+
+    target = ensure_target(args)
+    project_root = discover_project_root(target, args.root)
+    config = ensure_confirmed_config(project_root, args.accept)
+    if target is None:
+        print(f"Configuration confirmed: {config_path(project_root)}")
+        return 0
+
+    target_path = (Path.cwd() / target).resolve()
+    existed = target_path.exists()
+
+    if not existed and not args.new:
+        print(
+            f"File does not exist: {target_path}\n"
+            "use option -n/--new to create it first.",
+            file=sys.stderr,
+        )
+        return 1
+
+    if not existed:
+        create_target_file(target_path, project_root, config)
+
+    annotate_file(target_path, config)
+
+    if existed:
+        print(f"File updated successfully: {target_path}")
+    else:
+        print(f"File created and annotated successfully: {target_path}")
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

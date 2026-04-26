@@ -1,0 +1,6 @@
+# Review this file before first use.
+# prepfile will not modify target files until confirmed=yes.
+confirmed=no
+author_name=
+author_email=
+license_spdx=GPL-3.0-or-later
