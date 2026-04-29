@@ -1,0 +1,9 @@
+version = 1
+
+[[annotations]]
+path = [
+{{EXPORT_COPY_ONLY_PATHS}}
+]
+precedence = "aggregate"
+SPDX-FileCopyrightText = "2021 Monaco F. J. <https://github.com/monacofj>"
+SPDX-License-Identifier = "GPL-3.0-or-later"

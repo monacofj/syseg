@@ -100,6 +100,15 @@ This will create `path/to/own/repo` as a standalone copy of the files and
 tools needed for manual builds. The exported example can then be built
 manually without depending on the SYSeg source tree.
 
+If you run `make export` from another example directory using the same `DEST`,
+the destination will gain one more subdirectory. Nothing is lost, unless you
+run `make export` again from the same directory, in which case that same
+subdirectory is regenerated.
+
+The root of `DEST` contains a `README.md` with general information, and each
+exported subdirectory contains its own `README` with instructions specific to
+that example or programming exercise.
+
 If you create new files or modify exported files in your own repository,
 update the copyright notice to credit both the original SYSeg project, if
 applicable, and the authors of the local changes. The exported tree includes
@@ -111,6 +120,15 @@ For example, if you modified file `foo` in the exported tree,
 ```
 ../tools/prepfile foo
 ```
+
+If you are using a public repository, before publishing your code, it is
+recommended to run
+
+```
+make check
+```
+
+to verify whether authorship and licensing annotations are compliant.
 
 
 

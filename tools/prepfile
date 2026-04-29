@@ -50,6 +50,7 @@ class Config:
     author_name: str
     author_email: str
     license_spdx: str
+    copyright_year: str
 
 
 class PrepfileArgumentParser(argparse.ArgumentParser):
@@ -92,6 +93,18 @@ def parse_args() -> argparse.Namespace:
         "--drop-reuse-header",
         action="store_true",
         help="remove the first existing REUSE header before annotating",
+    )
+    parser.add_argument(
+        "--first-year",
+        action="store_true",
+        help="use the project default copyright_year instead of the current year",
+    )
+    parser.add_argument(
+        "--copyright-year",
+        action="append",
+        default=[],
+        metavar="YEAR",
+        help="copyright year to pass to reuse annotate",
     )
     parser.add_argument(
         "--root",
@@ -205,6 +218,7 @@ def load_config(path: Path) -> Config:
         author_name=values.get("author_name", ""),
         author_email=values.get("author_email", ""),
         license_spdx=values.get("license_spdx", ""),
+        copyright_year=values.get("copyright_year", ""),
     )
 
 
@@ -217,6 +231,7 @@ def format_config(config: Config) -> str:
         f"author_name={config.author_name}\n"
         f"author_email={config.author_email}\n"
         f"license_spdx={config.license_spdx}\n"
+        f"copyright_year={config.copyright_year}\n"
     )
 
 
@@ -233,19 +248,21 @@ def git_config(project_root: Path, key: str) -> str:
     return result.stdout.strip() if result.returncode == 0 else ""
 
 
-def project_default_license(project_root: Path) -> str:
+def project_defaults(project_root: Path) -> dict[str, str]:
     path = defaults_path(project_root)
     if path.is_file():
-        return read_key_values(path).get("license_spdx", "GPL-3.0-or-later")
-    return "GPL-3.0-or-later"
+        return read_key_values(path)
+    return {}
 
 
 def discovered_defaults(project_root: Path) -> Config:
+    defaults = project_defaults(project_root)
     return Config(
         confirmed=False,
         author_name=git_config(project_root, "user.name"),
         author_email=git_config(project_root, "user.email"),
-        license_spdx=project_default_license(project_root),
+        license_spdx=defaults.get("license_spdx", "GPL-3.0-or-later"),
+        copyright_year=defaults.get("copyright_year", "2021"),
     )
 
 
@@ -255,6 +272,7 @@ def merge_missing_config_values(config: Config, defaults: Config) -> Config:
         author_name=config.author_name or defaults.author_name,
         author_email=config.author_email or defaults.author_email,
         license_spdx=config.license_spdx or defaults.license_spdx,
+        copyright_year=config.copyright_year or defaults.copyright_year,
     )
 
 
@@ -376,6 +394,8 @@ def validate_config(config: Config, path: Path) -> None:
         missing.append("author_email")
     if not config.license_spdx:
         missing.append("license_spdx")
+    if not config.copyright_year:
+        missing.append("copyright_year")
 
     if missing:
         print(
@@ -402,13 +422,19 @@ def header_guard_for(path: Path) -> str:
     return guard.strip("_") or "HEADER_GUARD"
 
 
-def template_context(target: Path, config: Config) -> dict[str, str]:
+def annotation_year(config: Config, use_first_year: bool) -> str:
+    if use_first_year:
+        return config.copyright_year
+    return str(date.today().year)
+
+
+def template_context(target: Path, config: Config, use_first_year: bool) -> dict[str, str]:
     return {
         "{{FILENAME}}": target.name,
         "{{BASENAME}}": target.stem,
         "{{EXTENSION}}": target.suffix[1:],
         "{{HEADER_GUARD}}": header_guard_for(target),
-        "{{YEAR}}": str(date.today().year),
+        "{{YEAR}}": annotation_year(config, use_first_year),
         "{{AUTHOR_NAME}}": config.author_name,
         "{{AUTHOR_EMAIL}}": config.author_email,
         "{{LICENSE_ID}}": config.license_spdx,
@@ -436,7 +462,12 @@ def render_template(template: Path, context: dict[str, str]) -> str:
     return text
 
 
-def create_target_file(target: Path, project_root: Path, config: Config) -> None:
+def create_target_file(
+    target: Path,
+    project_root: Path,
+    config: Config,
+    use_first_year: bool,
+) -> None:
     if target.exists():
         return
 
@@ -445,7 +476,7 @@ def create_target_file(target: Path, project_root: Path, config: Config) -> None
         target.touch()
         return
 
-    rendered = render_template(template, template_context(target, config))
+    rendered = render_template(template, template_context(target, config, use_first_year))
     target.write_text(rendered, encoding="utf-8")
 
 
@@ -474,14 +505,18 @@ def annotate_file(
     config: Config,
     extra_reuse_args: list[str],
     use_default_reuse_args: bool,
+    use_first_year: bool,
+    copyright_years: list[str],
 ) -> None:
     holder = copyright_holder(config)
-    year = str(date.today().year)
+    years = copyright_years or [annotation_year(config, use_first_year)]
     style = reuse_style_for(target)
 
     command = ["reuse", "annotate"]
     if use_default_reuse_args:
-        command.extend(["-c", holder, "-y", year, "-l", config.license_spdx])
+        command.extend(["-c", holder, "-l", config.license_spdx])
+        for year in years:
+            command.extend(["-y", year])
     if style is not None:
         command.extend(["-s", style])
     command.extend(extra_reuse_args)
@@ -574,7 +609,7 @@ def main() -> int:
         return 1
 
     if not existed:
-        create_target_file(target_path, project_root, config)
+        create_target_file(target_path, project_root, config, args.first_year)
 
     if args.drop_reuse_header:
         drop_reuse_header(target_path)
@@ -584,6 +619,8 @@ def main() -> int:
         config,
         args.reuse_arg,
         use_default_reuse_args=not args.reuse_args_only,
+        use_first_year=args.first_year,
+        copyright_years=args.copyright_year,
     )
 
     if existed:
