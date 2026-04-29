@@ -80,6 +80,39 @@ to other hardware. There are also ongoing examples covering different platforms
 such as Arduino and ESP32, among others. The README file in the example
 directory indicates the targeted platform.
 
+Exporting code from SYSeg
+--------------------------------
+
+If you want to reuse any code example outside the SYSeg tree, do not simply
+copy the files elsewhere. They need to be prepared so that they also work
+outside the SYSeg tree.
+
+A common use case is to copy an exercise into your own Git repository, for
+example as part of an assignment.
+
+In that case, *enter the directory you want to export*, and, *from there*, run
+
+```
+make export DEST=path/to/own/repo
+```
+
+This will create `path/to/own/repo` as a standalone copy of the files and
+tools needed for manual builds. The exported example can then be built
+manually without depending on the SYSeg source tree.
+
+If you create new files or modify exported files in your own repository,
+update the copyright notice to credit both the original SYSeg project, if
+applicable, and the authors of the local changes. The exported tree includes
+its own `tools/prepfile` script to help with that. Run it from inside the
+exported directory.
+
+For example, if you modified file `foo` in the exported tree,
+
+```
+../tools/prepfile foo
+```
+
+
 
 Troubleshooting
 ---------------------------------

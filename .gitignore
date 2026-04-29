@@ -70,3 +70,4 @@ Makefile
 
 .codex
 .newfile
+.prepfile/*

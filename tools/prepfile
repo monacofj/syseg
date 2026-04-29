@@ -19,9 +19,9 @@ from pathlib import Path
 
 CONFIG_DIRNAME = ".prepfile"
 CONFIG_FILENAME = "config"
+DEFAULTS_FILENAME = "defaults"
 SYSTEM_TEMPLATE_DIR = Path("/usr/lib/prepfile/templates")
 BUNDLED_TEMPLATE_DIRNAME = "prepfile-templates"
-REUSE_TEMPLATE = "default"
 PROJECT_MARKERS = (
     CONFIG_DIRNAME,
     ".git",
@@ -56,6 +56,7 @@ class PrepfileArgumentParser(argparse.ArgumentParser):
     def format_help(self) -> str:
         intro = (
             "prepfile is a convenience wrapper around the reuse tool for quick file preparation.\n"
+            "It can also pass extra arguments through to `reuse annotate`.\n"
             "\n"
         )
         return intro + super().format_help()
@@ -74,6 +75,23 @@ def parse_args() -> argparse.Namespace:
         "--accept",
         action="store_true",
         help="mark .prepfile/config as reviewed and proceed",
+    )
+    parser.add_argument(
+        "--reuse-arg",
+        action="append",
+        default=[],
+        metavar="ARG",
+        help="pass an extra argument to reuse annotate",
+    )
+    parser.add_argument(
+        "--reuse-args-only",
+        action="store_true",
+        help="do not add prepfile's default copyright and license arguments",
+    )
+    parser.add_argument(
+        "--drop-reuse-header",
+        action="store_true",
+        help="remove the first existing REUSE header before annotating",
     )
     parser.add_argument(
         "--root",
@@ -157,6 +175,10 @@ def config_path(project_root: Path) -> Path:
     return project_root / CONFIG_DIRNAME / CONFIG_FILENAME
 
 
+def defaults_path(project_root: Path) -> Path:
+    return project_root / CONFIG_DIRNAME / DEFAULTS_FILENAME
+
+
 def template_dirs(project_root: Path) -> list[Path]:
     return [
         project_root / CONFIG_DIRNAME / "templates",
@@ -211,12 +233,19 @@ def git_config(project_root: Path, key: str) -> str:
     return result.stdout.strip() if result.returncode == 0 else ""
 
 
+def project_default_license(project_root: Path) -> str:
+    path = defaults_path(project_root)
+    if path.is_file():
+        return read_key_values(path).get("license_spdx", "GPL-3.0-or-later")
+    return "GPL-3.0-or-later"
+
+
 def discovered_defaults(project_root: Path) -> Config:
     return Config(
         confirmed=False,
         author_name=git_config(project_root, "user.name"),
         author_email=git_config(project_root, "user.email"),
-        license_spdx="GPL-3.0-or-later",
+        license_spdx=project_default_license(project_root),
     )
 
 
@@ -426,25 +455,41 @@ def copyright_holder(config: Config) -> str:
     return config.author_name
 
 
-def annotate_file(target: Path, config: Config) -> None:
+def reuse_style_for(target: Path) -> str | None:
+    if target.suffix in {".S", ".s"}:
+        # Assembly sources in SYSeg use hash comments, so reuse should
+        # rewrite their existing headers instead of inserting a new block.
+        return "python"
+    if target.suffix in {".md", ".markdown"}:
+        return "html"
+    if target.suffix:
+        return None
+    if target.name in {"README", "Makefile", "TODO", "prepfile", "config"}:
+        return "python"
+    return None
+
+
+def annotate_file(
+    target: Path,
+    config: Config,
+    extra_reuse_args: list[str],
+    use_default_reuse_args: bool,
+) -> None:
     holder = copyright_holder(config)
     year = str(date.today().year)
+    style = reuse_style_for(target)
+
+    command = ["reuse", "annotate"]
+    if use_default_reuse_args:
+        command.extend(["-c", holder, "-y", year, "-l", config.license_spdx])
+    if style is not None:
+        command.extend(["-s", style])
+    command.extend(extra_reuse_args)
+    command.append(str(target))
 
     try:
         result = subprocess.run(
-            [
-                "reuse",
-                "annotate",
-                "-c",
-                holder,
-                "-y",
-                year,
-                "-l",
-                config.license_spdx,
-                "-t",
-                REUSE_TEMPLATE,
-                str(target),
-            ],
+            command,
             check=False,
             capture_output=True,
             text=True,
@@ -459,6 +504,30 @@ def annotate_file(target: Path, config: Config) -> None:
         if result.stderr:
             print(result.stderr, file=sys.stderr, end="")
         raise SystemExit(result.returncode)
+
+
+def drop_reuse_header(target: Path) -> None:
+    text = target.read_text(encoding="utf-8")
+    shebang = ""
+    if text.startswith("#!"):
+        shebang, _, text = text.partition("\n")
+        shebang += "\n"
+
+    patterns = (
+        re.compile(r"\A\s*/\*.*?SPDX-.*?\*/\s*\n?", re.DOTALL),
+        re.compile(r"\A\s*<!--.*?SPDX-.*?-->\s*\n?", re.DOTALL),
+        re.compile(r"\A\s*(?:[ \t]*#[^\n]*\n)+", re.MULTILINE),
+    )
+
+    for pattern in patterns:
+        match = pattern.match(text)
+        if match is None:
+            continue
+        header = match.group(0)
+        if "SPDX-" not in header:
+            continue
+        target.write_text(shebang + text[match.end() :].lstrip("\n"), encoding="utf-8")
+        return
 
 
 def ensure_target(args: argparse.Namespace) -> Path | None:
@@ -507,7 +576,15 @@ def main() -> int:
     if not existed:
         create_target_file(target_path, project_root, config)
 
-    annotate_file(target_path, config)
+    if args.drop_reuse_header:
+        drop_reuse_header(target_path)
+
+    annotate_file(
+        target_path,
+        config,
+        args.reuse_arg,
+        use_default_reuse_args=not args.reuse_args_only,
+    )
 
     if existed:
         print(f"File updated successfully: {target_path}")
