@@ -145,37 +145,28 @@ arch_i64 := i386:x86-64
 ##
 ## Naming rules:
 ##
-##   /h          Hexdump using the default view for the file type.
+##   /hex        Hexdump using the default view for the file type.
 ##               For .bin, dump the whole file. For .o, dump $(LOADABLE).
-##   /hx         Hexdump executable sections only.
-##   /hex        ELF only, dump loadable sections byte-by-byte (hexdump -C).
-##   /H          Hexdump the whole file, regardless of type.
+##   /hexx       Hexdump executable sections only.
+##   /h          Hex bytes only (middle column of hexdump -C), whole file.
+##   /Hex        Hexdump the whole file, regardless of type.
 ##   .elf/...    Alias to the corresponding .o/... rule.
 ##
 ## Examples:
 ##
-##   make foo.bin/h    # flat binary, dump the whole file
-##   make foo.o/h      # ELF object, dump $(LOADABLE)
-##   make foo.o/hx     # ELF object, dump executable sections only
-##   make foo.o/hex    # ELF object, dump loadable sections with hexdump -C
-##   make foo.o/H      # raw hexdump of the whole ELF file
-##   make foo.elf/h    # alias for foo.o/h
+##   make foo.bin/hex    # flat binary, dump the whole file
+##   make foo.o/hex      # ELF object, dump $(LOADABLE)
+##   make foo.o/hexx     # ELF object, dump executable sections only
+##   make foo.bin/h      # only hex-byte column, whole file
+##   make foo.o/Hex      # raw hexdump of the whole ELF file
+##   make foo.elf/hex    # alias for foo.o/hex
 ##
 
-%.elf/h: %.o/h ;
-%.elf/hx: %.o/hx ;
 %.elf/hex: %.o/hex ;
+%.elf/hexx: %.o/hexx ;
 
-%.bin/h: %.bin FORCE
+%.bin/hex: %.bin FORCE
 	hexdump -C $<
-
-%.o/h: %.o FORCE
-	objdump -s $(LOADABLE) $<
-
-%.o/hx: %.o FORCE
-	@for sec in $$(readelf -SW $< | awk '$$1 == "[" && index($$(NF-3),"X") { print $$3 }'); do \
-		objdump -s -j $$sec $<; \
-	done
 
 %.o/hex: %.o FORCE
 	@tmp=$$(mktemp /tmp/syseg-hex.XXXXXX); \
@@ -193,7 +184,24 @@ arch_i64 := i386:x86-64
 		fi; \
 	done
 
-%/H: % FORCE
+%.o/hexx: %.o FORCE
+	@tmp=$$(mktemp /tmp/syseg-hex.XXXXXX); \
+	trap 'rm -f "$$tmp"' EXIT; \
+	for sec in $$(readelf -SW $< | awk '$$1 == "[" && index($$(NF-3),"X") { print $$3 }'); do \
+		echo ""; \
+		echo "$$sec:"; \
+		rm -f "$$tmp"; \
+		if objcopy --dump-section "$$sec=$$tmp" $< 2>/dev/null && [ -f "$$tmp" ]; then \
+			hexdump -C "$$tmp"; \
+		else \
+			echo "[no contents]"; \
+		fi; \
+	done
+
+%/h: % FORCE
+	@hexdump -v -e '16/1 "%02x " "\n"' $<
+
+%/Hex: % FORCE
 	hexdump -C $<
 
 
@@ -308,4 +316,3 @@ SMP ?= 2                     # Number of CPU cores to allocate for QEMU
 
 $(OVMF_VARS_LOCAL): $(OVMF_VARS_TEMPLATE)
 	cp $< $@
-
