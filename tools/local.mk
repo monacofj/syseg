@@ -35,15 +35,18 @@ BINTOOLS ?= bintools.mk mbr-fat32.S mbr-fat32.ld vbr-fat32.ld csmwrapia32.efi cs
 
 PREPFILES ?= prepfile prepfile-templates/config
 
-EXPORT_TOOLS = $(PREPFILES)
+EXPORT_TOOLS ?= $(PREPFILES)
 EXPORT_FILES_COPY_ONLY ?= csmwrapia32.efi csmwrapx64.efi
 
 ## Explicit list of files from $(top_srcdir)/tools to export with this example.
 EXPORT_MAKEFILE_VARS ?= CC MAKE AS LD AR OBJCOPY OBJDUMP CFLAGS CPPFLAGS LDFLAGS
 
-.PHONY: all export export-tools bundle clean-export clean-bundle
+.PHONY: all export export-tools bundle clean-export clean-bundle clean-tempfiles
 
+clean-local: clean-tempfiles
 
+clean-tempfiles:
+	rm -f $(TEMPFILES) \#*\#
 
 clean-export:
 	@set -eu; \
@@ -58,18 +61,36 @@ export-tools:
 	@set -eu; \
 	test -n "$(DEST)" || { printf 'set DEST=/path/to/export\n' >&2; exit 1; }; \
 	tools_dir="$(DEST)/tools"; \
+	reuse_paths_file="$(DEST)/.reuse-paths"; \
 	export_reuse_note_args="--drop-reuse-header --reuse-args-only --reuse-arg=--contributor --reuse-arg=SYSeg --reuse-arg=-t --reuse-arg=export"; \
 	export_reuse_spdx_args="--reuse-arg=--no-replace"; \
+	add_reuse_path() { \
+	  printf '  "%s",\n' "$$1" >> "$$reuse_paths_file"; \
+	}; \
 	annotate() { \
+	  target="$$1"; \
+	  reuse_path="$$2"; \
+	  log=$$(mktemp /tmp/syseg-export-reuse.XXXXXX); \
 	  year_args=$$(sed -n 's/.*SPDX-FileCopyrightText:[[:space:]]*\([0-9][0-9][0-9][0-9][0-9,-]*\).*/--copyright-year=\1/p' "$$1"); \
-	  $(TOOLS_PATH)/prepfile $$export_reuse_note_args --root "$(top_srcdir)" "$$1" >/dev/null && \
-	  if test -n "$$year_args"; then \
-	    $(TOOLS_PATH)/prepfile $$year_args $$export_reuse_spdx_args --root "$(top_srcdir)" "$$1" >/dev/null; \
-	  else \
-	    $(TOOLS_PATH)/prepfile --first-year $$export_reuse_spdx_args --root "$(top_srcdir)" "$$1" >/dev/null; \
+	  if ! $(TOOLS_PATH)/prepfile $$export_reuse_note_args --root "$(top_srcdir)" "$$target" >"$$log" 2>&1; then \
+	    if grep -Eq "do not have a recognised file extension|UnicodeDecodeError" "$$log"; then add_reuse_path "$$reuse_path"; rm -f "$$log"; return 0; fi; \
+	    cat "$$log" >&2; rm -f "$$log"; return 1; \
 	  fi; \
+	  if test -n "$$year_args"; then \
+	    if ! $(TOOLS_PATH)/prepfile $$year_args $$export_reuse_spdx_args --root "$(top_srcdir)" "$$target" >"$$log" 2>&1; then \
+	      if grep -Eq "do not have a recognised file extension|UnicodeDecodeError" "$$log"; then add_reuse_path "$$reuse_path"; rm -f "$$log"; return 0; fi; \
+	      cat "$$log" >&2; rm -f "$$log"; return 1; \
+	    fi; \
+	  else \
+	    if ! $(TOOLS_PATH)/prepfile --first-year $$export_reuse_spdx_args --root "$(top_srcdir)" "$$target" >"$$log" 2>&1; then \
+	      if grep -Eq "do not have a recognised file extension|UnicodeDecodeError" "$$log"; then add_reuse_path "$$reuse_path"; rm -f "$$log"; return 0; fi; \
+	      cat "$$log" >&2; rm -f "$$log"; return 1; \
+	    fi; \
+	  fi; \
+	  rm -f "$$log"; \
 	}; \
 	mkdir -p "$$tools_dir"; \
+	: > "$$reuse_paths_file"; \
 	for tool in $(filter-out $(EXPORT_FILES_COPY_ONLY),$(EXPORT_TOOLS)); do \
 	  src="$(top_srcdir)/tools/$$tool"; \
 	  out="$$tools_dir/$$tool"; \
@@ -77,7 +98,7 @@ export-tools:
 	  if test ! -e "$$out" || test "$$src" -nt "$$out"; then \
 	    printf 'exporting %s\n' "$$out"; \
 	    cp "$$src" "$$out"; \
-	    annotate "$$out"; \
+	    annotate "$$out" "tools/$$tool"; \
 	  fi; \
 	done; \
 	for tool in $(EXPORT_FILES_COPY_ONLY); do \
@@ -87,6 +108,7 @@ export-tools:
 	  if test ! -e "$$out" || test "$$src" -nt "$$out"; then \
 	    printf 'exporting %s\n' "$$out"; \
 	    cp "$$src" "$$out"; \
+	    add_reuse_path "tools/$$tool"; \
 	  fi; \
 	done
 
@@ -95,6 +117,7 @@ export: $(EXPORT_FILES) $(MANUAL_BUILD_RULES) export-tools
 	test -n "$(DEST)" || { printf 'set DEST=/path/to/export\n' >&2; exit 1; }; \
 	export_root="$(DEST)"; \
 	export_dir="$$export_root/$(EXPORT_SUBDIR)"; \
+	reuse_paths_file="$$export_root/.reuse-paths"; \
 	tools_rel=$$(printf '%s\n' "$(EXPORT_SUBDIR)" | awk -F/ '{for (i = 1; i <= NF; i++) printf "../"; print "tools"}'); \
 	export_readme_template="$(top_srcdir)/tools/export-notes.md"; \
 	export_root_makefile_template="$(top_srcdir)/tools/export-root.mk"; \
@@ -102,14 +125,30 @@ export: $(EXPORT_FILES) $(MANUAL_BUILD_RULES) export-tools
 	export_reuse_template="$(top_srcdir)/tools/export-reuse.toml"; \
 	export_reuse_note_args="--drop-reuse-header --reuse-args-only --reuse-arg=--contributor --reuse-arg=SYSeg --reuse-arg=-t --reuse-arg=export"; \
 	export_reuse_spdx_args="--reuse-arg=--no-replace"; \
+	add_reuse_path() { \
+	  printf '  "%s",\n' "$$1" >> "$$reuse_paths_file"; \
+	}; \
 	annotate() { \
-	  year_args=$$(sed -n 's/.*SPDX-FileCopyrightText:[[:space:]]*\([0-9][0-9][0-9][0-9][0-9,-]*\).*/--copyright-year=\1/p' "$$1"); \
-	  $(TOOLS_PATH)/prepfile $$export_reuse_note_args --root "$(top_srcdir)" "$$1" >/dev/null && \
-	  if test -n "$$year_args"; then \
-	    $(TOOLS_PATH)/prepfile $$year_args $$export_reuse_spdx_args --root "$(top_srcdir)" "$$1" >/dev/null; \
-	  else \
-	    $(TOOLS_PATH)/prepfile --first-year $$export_reuse_spdx_args --root "$(top_srcdir)" "$$1" >/dev/null; \
+	  target="$$1"; \
+	  reuse_path="$$2"; \
+	  log=$$(mktemp /tmp/syseg-export-reuse.XXXXXX); \
+	  year_args=$$(sed -n 's/.*SPDX-FileCopyrightText:[[:space:]]*\([0-9][0-9][0-9][0-9][0-9,-]*\).*/--copyright-year=\1/p' "$$target"); \
+	  if ! $(TOOLS_PATH)/prepfile $$export_reuse_note_args --root "$(top_srcdir)" "$$target" >"$$log" 2>&1; then \
+	    if grep -Eq "do not have a recognised file extension|UnicodeDecodeError" "$$log"; then add_reuse_path "$$reuse_path"; rm -f "$$log"; return 0; fi; \
+	    cat "$$log" >&2; rm -f "$$log"; return 1; \
 	  fi; \
+	  if test -n "$$year_args"; then \
+	    if ! $(TOOLS_PATH)/prepfile $$year_args $$export_reuse_spdx_args --root "$(top_srcdir)" "$$target" >"$$log" 2>&1; then \
+	      if grep -Eq "do not have a recognised file extension|UnicodeDecodeError" "$$log"; then add_reuse_path "$$reuse_path"; rm -f "$$log"; return 0; fi; \
+	      cat "$$log" >&2; rm -f "$$log"; return 1; \
+	    fi; \
+	  else \
+	    if ! $(TOOLS_PATH)/prepfile --first-year $$export_reuse_spdx_args --root "$(top_srcdir)" "$$target" >"$$log" 2>&1; then \
+	      if grep -Eq "do not have a recognised file extension|UnicodeDecodeError" "$$log"; then add_reuse_path "$$reuse_path"; rm -f "$$log"; return 0; fi; \
+	      cat "$$log" >&2; rm -f "$$log"; return 1; \
+	    fi; \
+	  fi; \
+	  rm -f "$$log"; \
 	}; \
 	rm -f "$$export_root/$(notdir $(CURDIR)).tar" "$$export_root/$(notdir $(CURDIR)).tar.gz"; \
 	rm -rf "$$export_dir"; \
@@ -118,17 +157,12 @@ export: $(EXPORT_FILES) $(MANUAL_BUILD_RULES) export-tools
 	  printf 'exporting %s\n' "$$export_root/README.md"; \
 	  project_name=$$(basename "$$export_root"); \
 	  PROJECT_NAME="$$project_name" perl -0pe 's/\{\{PROJECT\}\}/$$ENV{PROJECT_NAME}/g' "$$export_readme_template" > "$$export_root/README.md"; \
-	  annotate "$$export_root/README.md"; \
+	  annotate "$$export_root/README.md" "README.md"; \
 	fi; \
 	if test ! -e "$$export_root/Makefile"; then \
 	  printf 'exporting %s\n' "$$export_root/Makefile"; \
 	  cp "$$export_root_makefile_template" "$$export_root/Makefile"; \
-	  annotate "$$export_root/Makefile"; \
-	fi; \
-	if test ! -e "$$export_root/REUSE.toml"; then \
-	  printf 'exporting %s\n' "$$export_root/REUSE.toml"; \
-	  copy_only_paths=$$(for file in $(EXPORT_FILES_COPY_ONLY); do printf '  "tools/%s",\n' "$$file"; done); \
-	  EXPORT_COPY_ONLY_PATHS="$$copy_only_paths" perl -0pe 's/\{\{EXPORT_COPY_ONLY_PATHS\}\}/$$ENV{EXPORT_COPY_ONLY_PATHS}/g' "$$export_reuse_template" > "$$export_root/REUSE.toml"; \
+	  annotate "$$export_root/Makefile" "Makefile"; \
 	fi; \
 	: "Add provenance first; the SPDX pass uses --no-replace so it lands above it."; \
 	for file in $(MANUAL_BUILD_RULES) $(EXPORT_FILES); do \
@@ -136,7 +170,7 @@ export: $(EXPORT_FILES) $(MANUAL_BUILD_RULES) export-tools
 	  mkdir -p "$$(dirname "$$out")"; \
 	  printf 'exporting %s\n' "$$out"; \
 	  cp "$$file" "$$out"; \
-	  annotate "$$out"; \
+	  annotate "$$out" "$(EXPORT_SUBDIR)/$$file"; \
 	done; \
 	for file in $(EXPORT_NEW_FILES); do \
 	  out="$$export_dir/$$file"; \
@@ -152,7 +186,13 @@ export: $(EXPORT_FILES) $(MANUAL_BUILD_RULES) export-tools
 	EXPORT_TOOL_INCLUDES="$$tool_includes" \
 	  perl -0pe 's/\{\{TOOLS_REL\}\}/$$ENV{TOOLS_REL}/g; s/\{\{EXPORT_MAKEFILE_VAR_ASSIGNMENTS\}\}/$$ENV{EXPORT_MAKEFILE_VAR_ASSIGNMENTS}/g; s/\{\{MANUAL_BUILD_RULES\}\}/$$ENV{MANUAL_BUILD_RULES_VALUE}/g; s/\{\{EXPORT_TOOL_INCLUDES\}\}/$$ENV{EXPORT_TOOL_INCLUDES}/g' "$$export_local_makefile_template" > "$$export_dir/Makefile"; \
 	printf 'exporting %s\n' "$$export_dir/Makefile"; \
-	annotate "$$export_dir/Makefile"; \
+	annotate "$$export_dir/Makefile" "$(EXPORT_SUBDIR)/Makefile"; \
+	if test ! -e "$$export_root/REUSE.toml"; then \
+	  printf 'exporting %s\n' "$$export_root/REUSE.toml"; \
+	  reuse_paths=$$(sort -u "$$reuse_paths_file"); \
+	  EXPORT_REUSE_PATHS="$$reuse_paths" perl -0pe 's/\{\{EXPORT_REUSE_PATHS\}\}/$$ENV{EXPORT_REUSE_PATHS}/g' "$$export_reuse_template" > "$$export_root/REUSE.toml"; \
+	fi; \
+	rm -f "$$reuse_paths_file"; \
 	(cd "$$export_root" && reuse download --all); \
 	printf 'Exported directory: %s\n' "$$export_dir"
 
