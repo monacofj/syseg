@@ -32,7 +32,16 @@ hello-01 : hello-01.c
 hello-02.bin : hello-02.hex
 	$(TOOLS_PATH)/hex2bin < $< > $@
 
+# Variation of hello-02.bin for BIOSes that may overwrite BPB fields in the
+# loaded boot sector, assuming a FAT filesystem. The trick is to leave room
+# where a FAT BPB would be and start the sector with a jump over that area.
+# Common reports mention BIOSes overwriting offset 0x24, the drive number in
+# a FAT16 BPB; FAT32 puts that field at 0x40. This version leaves the whole
+# FAT32 BPB area free: EB 58 jumps from offset 0x02 to code at offset 0x5a.
 
+
+hello-02a.bin : hello-02a.hex
+	$(TOOLS_PATH)/hex2bin < $< > $@
 
 
 #############
