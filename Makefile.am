@@ -7,4 +7,4 @@
 
 ACLOCAL_AMFLAGS = -I m4
 
-SUBDIRS = eg
+SUBDIRS = tools eg
