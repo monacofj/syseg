@@ -8,8 +8,8 @@
 
 _SYSeg - Copyright (c) 2021 Monaco F. J. <https://github.com/monacofj>_ 
 
-_SYSeg is released under the GNU General Public License v3.0 or later. See  
-Licensing terms below for details._ 
+_SYSeg is released under the GNU General Public License v3.0 or later. 
+See Licensing terms below for details._ 
 
 SYSeg - System Software by Example
 ========================================
