@@ -58,6 +58,9 @@ AC_SUBST([MANUAL_BUILD_RULES], [build.mk])
 
 AC_CONFIG_FILES(
 	Makefile
+
+	tools/Makefile
+
 	eg/Makefile
 	eg/hw/Makefile
 )
