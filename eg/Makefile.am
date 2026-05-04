@@ -5,4 +5,4 @@
 # This file is part of SYSeg (https://github.com/monacofj/syseg)
 
 
-SUBDIRS = hw
+SUBDIRS = hello

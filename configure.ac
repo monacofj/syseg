@@ -62,7 +62,7 @@ AC_CONFIG_FILES(
 	tools/Makefile
 
 	eg/Makefile
-	eg/hw/Makefile
+	eg/hello/Makefile
 )
 
 AC_OUTPUT
