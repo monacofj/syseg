@@ -486,6 +486,34 @@ def copyright_holder(config: Config) -> str:
     return config.author_name
 
 
+def path_is_inside(path: Path, directory: Path) -> bool:
+    try:
+        path.resolve().relative_to(directory.resolve())
+    except ValueError:
+        return False
+    return True
+
+
+def has_template_arg(args: list[str]) -> bool:
+    for index, arg in enumerate(args):
+        if arg in {"-t", "--template"}:
+            return True
+        if arg.startswith("--template="):
+            return True
+        if arg == "--reuse-arg" and index + 1 < len(args):
+            next_arg = args[index + 1]
+            if next_arg in {"-t", "--template"} or next_arg.startswith("--template="):
+                return True
+    return False
+
+
+def project_default_template(project_root: Path) -> str | None:
+    template = project_root / ".reuse" / "templates" / "default.jinja2"
+    if template.is_file():
+        return "default"
+    return None
+
+
 def reuse_style_for(target: Path) -> str | None:
     if target.suffix in {".S", ".s"}:
         # Assembly sources in SYSeg use hash comments, so reuse should
@@ -502,6 +530,7 @@ def reuse_style_for(target: Path) -> str | None:
 
 def annotate_file(
     target: Path,
+    project_root: Path,
     config: Config,
     extra_reuse_args: list[str],
     use_default_reuse_args: bool,
@@ -519,6 +548,9 @@ def annotate_file(
             command.extend(["-y", year])
     if style is not None:
         command.extend(["-s", style])
+    template = project_default_template(project_root)
+    if template is not None and path_is_inside(target, project_root) and not has_template_arg(extra_reuse_args):
+        command.extend(["-t", template])
     command.extend(extra_reuse_args)
     command.append(str(target))
 
@@ -528,6 +560,7 @@ def annotate_file(
             check=False,
             capture_output=True,
             text=True,
+            cwd=str(project_root),
         )
     except FileNotFoundError:
         print("Could not find `reuse`; install it and try again.", file=sys.stderr)
@@ -616,6 +649,7 @@ def main() -> int:
 
     annotate_file(
         target_path,
+        project_root,
         config,
         args.reuse_arg,
         use_default_reuse_args=not args.reuse_args_only,
