@@ -226,7 +226,7 @@ mbr-fat32.o : $(TOOLS_PATH)/mbr-fat32.S
 
 mbr-fat32.bin : mbr-fat32.o $(TOOLS_PATH)/mbr-fat32.ld
 	ld -melf_i386 -T $(TOOLS_PATH)/mbr-fat32.ld $< -o $@
-	
+
 # This is the VBR code for FAT32, containing the initialization program
 # (e.g.) bootloader loaded by BIOS in the legacy booting process. 
 
@@ -236,19 +236,18 @@ mbr-fat32.bin : mbr-fat32.o $(TOOLS_PATH)/mbr-fat32.ld
 %.vbr : %.o $(TOOLS_PATH)/vbr-fat32.ld
 	ld -melf_i386 -T $(TOOLS_PATH)/vbr-fat32.ld $< -o $@
 
-
 # For legacy BIOS booting.
 
 %.img : %.vbr mbr-fat32.bin 
 	rm -f $@
 	dd if=/dev/zero of=$@ bs=$(SECTOR_SIZE) count=$(DISK_SECTORS)
 	parted -s $@ mklabel msdos
-	parted -s $@ unit s mkpart primary fat32 $(PART1_START) $$(($(DISK_SECTORS) - 1))
+	parted -s $@ unit s mkpart primary fat32 $(PART1_START) $(PART1_LAST_SECTOR)
 	parted -s $@ set 1 boot on
 	parted -s $@ set 1 esp on
 	mkfs.fat -F32 --offset $(PART1_START) $@
 	dd if=mbr-fat32.bin of=$@ bs=446 count=1 conv=notrunc
-	dd if=$< of=$@ bs=1 seek=$$(($(PART1_START) * $(SECTOR_SIZE) + 90)) conv=notrunc
+	dd if=$< of=$@ bs=1 seek=$$(($(PART1_OFFSET) + 90)) conv=notrunc
 
 
 # For booting an EFI application.
