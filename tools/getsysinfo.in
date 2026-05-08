@@ -1,0 +1,264 @@
+#!/usr/bin/env python3
+# SPDX-FileCopyrightText: 2026 Monaco F. J. <https://github.com/monacofj>
+#
+# SPDX-License-Identifier: GPL-3.0-or-later
+#
+# This file is part of SYSeg (https://github.com/monacofj/syseg)
+
+from __future__ import annotations
+
+import argparse
+import json
+import os
+import platform
+import shlex
+import shutil
+import subprocess
+from pathlib import Path
+from typing import Dict, List, Tuple
+
+CONFIGURED_TOOLS = {
+    "CC": "@CC@",
+    "AS": "@SYSEG_AS@",
+    "NASM": "@NASM@",
+    "LD": "@SYSEG_LD@",
+    "AR": "@AR@",
+}
+
+
+def run_cmd(argv: List[str]) -> Tuple[int, str]:
+    try:
+        proc = subprocess.run(
+            argv,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            text=True,
+            check=False,
+        )
+        return proc.returncode, (proc.stdout or "").strip()
+    except OSError as exc:
+        return 127, str(exc)
+
+
+def first_line(text: str) -> str:
+    for line in text.splitlines():
+        s = line.strip()
+        if s:
+            return s
+    return ""
+
+
+def read_text(path: Path) -> str:
+    try:
+        return path.read_text(encoding="utf-8", errors="replace").strip()
+    except OSError:
+        return ""
+
+
+def parse_os_release() -> Dict[str, str]:
+    out: Dict[str, str] = {}
+    data = read_text(Path("/etc/os-release"))
+    for line in data.splitlines():
+        if "=" not in line or line.lstrip().startswith("#"):
+            continue
+        k, v = line.split("=", 1)
+        out[k] = v.strip().strip('"')
+    return out
+
+
+def parse_meminfo() -> Dict[str, str]:
+    info = {}
+    for line in read_text(Path("/proc/meminfo")).splitlines():
+        if ":" not in line:
+            continue
+        k, v = line.split(":", 1)
+        info[k.strip()] = v.strip()
+    return info
+
+
+def parse_cpuinfo() -> Dict[str, str]:
+    model = ""
+    flags = ""
+    for line in read_text(Path("/proc/cpuinfo")).splitlines():
+        if not model and line.startswith("model name"):
+            model = line.split(":", 1)[1].strip()
+        if not flags and line.startswith("flags"):
+            flags = line.split(":", 1)[1].strip()
+        if model and flags:
+            break
+    return {"model_name": model, "flags": flags}
+
+
+def detect_boot_mode() -> str:
+    if Path("/sys/firmware/efi").is_dir():
+        return "UEFI"
+    return "BIOS/Legacy (or unavailable in this environment)"
+
+
+def format_section(title: str, lines: List[str]) -> str:
+    body = "\n".join(lines) if lines else "(none)"
+    return f"{title}\n{'-' * len(title)}\n{body}\n"
+
+
+def tool_version(cmd: str) -> Dict[str, str]:
+    path = shutil.which(cmd)
+    if not path:
+        return {"command": cmd, "path": "", "found": "no", "version": ""}
+
+    for args in ([cmd, "--version"], [cmd, "-v"], [cmd, "-V"]):
+        rc, out = run_cmd(args)
+        if rc == 0 or out:
+            return {
+                "command": cmd,
+                "path": path,
+                "found": "yes",
+                "version": first_line(out),
+                "exit_code": str(rc),
+            }
+    return {"command": cmd, "path": path, "found": "yes", "version": ""}
+
+
+def gather_tools() -> List[Dict[str, str]]:
+    # Tool names from the build environment first (Autotools/Make), falling
+    # back to values resolved at configure time.
+    env_names = ["CC", "AS", "NASM", "LD", "AR"]
+    rows: List[Dict[str, str]] = []
+
+    for var in env_names:
+        env_value = os.environ.get(var, "").strip()
+        cfg_value = CONFIGURED_TOOLS.get(var, "").strip()
+        value = env_value or cfg_value
+        if not value:
+            rows.append(
+                {
+                    "var": var,
+                    "value": "",
+                    "found": "no",
+                    "version": "",
+                }
+            )
+            continue
+
+        # Keep the exact variable assignment visible in the report.
+        parts = shlex.split(value)
+        cmd = parts[0] if parts else value
+        resolved = shutil.which(cmd) or ""
+        if resolved:
+            rc, out = run_cmd([cmd, "--version"])
+            if rc != 0 and not out:
+                rc, out = run_cmd([cmd, "-v"])
+            ver = first_line(out)
+            found = "yes"
+        else:
+            ver = ""
+            found = "no"
+        rows.append(
+            {
+                "var": var,
+                "found": found,
+                "version": ver,
+            }
+        )
+
+    return rows
+
+
+def collect() -> Dict[str, object]:
+    osr = parse_os_release()
+    mem = parse_meminfo()
+    cpu = parse_cpuinfo()
+
+    lscpu_rc, lscpu_out = run_cmd(["lscpu"])
+    uname_rc, uname_out = run_cmd(["uname", "-a"])
+
+    dmi_fields = {
+        "bios_vendor": read_text(Path("/sys/class/dmi/id/bios_vendor")),
+        "bios_version": read_text(Path("/sys/class/dmi/id/bios_version")),
+        "bios_date": read_text(Path("/sys/class/dmi/id/bios_date")),
+        "board_name": read_text(Path("/sys/class/dmi/id/board_name")),
+        "product_name": read_text(Path("/sys/class/dmi/id/product_name")),
+        "sys_vendor": read_text(Path("/sys/class/dmi/id/sys_vendor")),
+    }
+
+    return {
+        "system": {
+            "kernel": platform.release(),
+            "machine": platform.machine(),
+            "platform": platform.platform(),
+            "boot_mode": detect_boot_mode(),
+            "uname": uname_out if uname_rc == 0 else "",
+            "os_release": osr,
+        },
+        "hardware": {
+            "cpu_model": cpu.get("model_name", ""),
+            "cpu_flags": cpu.get("flags", ""),
+            "cpu_count_logical": str(os.cpu_count() or ""),
+            "mem_total": mem.get("MemTotal", ""),
+            "mem_available": mem.get("MemAvailable", ""),
+            "lscpu": lscpu_out if lscpu_rc == 0 else "",
+            "dmi": dmi_fields,
+        },
+        "toolchain": gather_tools(),
+    }
+
+
+def print_text(report: Dict[str, object]) -> None:
+    system = report["system"]  # type: ignore[index]
+    hardware = report["hardware"]  # type: ignore[index]
+    tools = report["toolchain"]  # type: ignore[index]
+
+    print("SYSeg Host Report")
+    print("=================\n")
+
+    os_release = system["os_release"]  # type: ignore[index]
+    pretty_os = os_release.get("PRETTY_NAME", "") if isinstance(os_release, dict) else ""
+
+    sys_lines = [
+        f"OS: {pretty_os}",
+        f"Kernel: {system.get('kernel', '')}",
+        f"Machine: {system.get('machine', '')}",
+        f"Boot mode: {system.get('boot_mode', '')}",
+    ]
+    print(format_section("System", sys_lines))
+
+    dmi = hardware.get("dmi", {}) if isinstance(hardware, dict) else {}
+    hw_lines = [
+        f"CPU model: {hardware.get('cpu_model', '')}",
+        f"Logical CPUs: {hardware.get('cpu_count_logical', '')}",
+        f"Memory total: {hardware.get('mem_total', '')}",
+        f"Memory available: {hardware.get('mem_available', '')}",
+        f"Vendor/Product: {dmi.get('sys_vendor', '')} / {dmi.get('product_name', '')}" if isinstance(dmi, dict) else "",
+        f"Firmware: {dmi.get('bios_vendor', '')} {dmi.get('bios_version', '')} ({dmi.get('bios_date', '')})" if isinstance(dmi, dict) else "",
+    ]
+    print(format_section("Hardware", [ln for ln in hw_lines if ln]))
+
+    tool_lines = []
+    if isinstance(tools, list):
+        for row in tools:
+            if not isinstance(row, dict):
+                continue
+            var = row.get("var", "")
+            found = row.get("found", "no")
+            version = row.get("version", "")
+            if found == "yes" and version:
+                tool_lines.append(f"{var} : {version}")
+            else:
+                tool_lines.append(f"{var} : (no)")
+    print(format_section("Toolchain", tool_lines))
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser(description="Collect SYSeg host and toolchain information.")
+    parser.add_argument("--json", action="store_true", help="emit report as JSON")
+    args = parser.parse_args()
+
+    report = collect()
+    if args.json:
+        print(json.dumps(report, indent=2, sort_keys=True))
+    else:
+        print_text(report)
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

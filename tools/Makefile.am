@@ -5,5 +5,6 @@
 # This file is part of SYSeg (https://github.com/monacofj/syseg)
 
 bin_PROGRAMS = hex2bin
+noinst_SCRIPTS = getsysinfo
 
 hex2bin_SOURCES = hex2bin.c

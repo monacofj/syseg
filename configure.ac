@@ -51,6 +51,7 @@ SYSEG_CHECK_PROGRAM([objcopy], [OBJCOPY])
 SYSEG_CHECK_PROGRAM([readelf], [READELF])
 SYSEG_CHECK_PROGRAM([hexdump], [HEXDUMP])
 SYSEG_CHECK_PROGRAM([as], [SYSEG_AS])
+SYSEG_CHECK_PROGRAM([nasm], [NASM])
 SYSEG_CHECK_PROGRAM([ld], [SYSEG_LD])
 SYSEG_CHECK_PROGRAM([mkfs.fat], [MKFS_FAT])
 SYSEG_CHECK_PROGRAM([parted], [PARTED])
@@ -82,12 +83,15 @@ AC_CONFIG_FILES(
 
 	tools/Makefile
 	tools/config.mk
+	tools/getsysinfo
 
 	eg/Makefile
 	eg/hello/Makefile
 )
 
 AC_OUTPUT
+
+chmod +x tools/getsysinfo
 
 rm -f syseg.log
 if test -n "$SYSEG_MISSING_TOOLS"; then
