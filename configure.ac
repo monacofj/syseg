@@ -39,6 +39,27 @@ AC_SUBST([TEMPFILES], ["*~ *.tmp"])
 
 AC_SUBST([TOOLS_PATH], ['$(top_srcdir)/tools'])
 AC_SUBST([MANUAL_BUILD_RULES], [build.mk])
+SYSEG_MISSING_TOOLS=
+
+##
+## Checks for programs/tools
+##
+
+SYSEG_CHECK_PROGRAM([xorriso], [XORRISO])
+SYSEG_CHECK_PROGRAM([objdump], [OBJDUMP])
+SYSEG_CHECK_PROGRAM([objcopy], [OBJCOPY])
+SYSEG_CHECK_PROGRAM([readelf], [READELF])
+SYSEG_CHECK_PROGRAM([hexdump], [HEXDUMP])
+SYSEG_CHECK_PROGRAM([as], [SYSEG_AS])
+SYSEG_CHECK_PROGRAM([ld], [SYSEG_LD])
+SYSEG_CHECK_PROGRAM([mkfs.fat], [MKFS_FAT])
+SYSEG_CHECK_PROGRAM([parted], [PARTED])
+SYSEG_CHECK_PROGRAM([mmd], [MMD])
+SYSEG_CHECK_PROGRAM([mcopy], [MCOPY])
+SYSEG_CHECK_PROGRAM([qemu-system-i386], [QEMU_32])
+SYSEG_CHECK_PROGRAM([qemu-system-x86_64], [QEMU_64])
+
+SYSEG_CHECK_ISOHYBRID_MBR
 
 ##
 ## Checks for libraries.
@@ -60,6 +81,7 @@ AC_CONFIG_FILES(
 	Makefile
 
 	tools/Makefile
+	tools/config.mk
 
 	eg/Makefile
 	eg/hello/Makefile
@@ -67,3 +89,15 @@ AC_CONFIG_FILES(
 
 AC_OUTPUT
 
+rm -f syseg.log
+if test -n "$SYSEG_MISSING_TOOLS"; then
+	cat > syseg.log <<'_SYSEG_EOF'
+log_note
+_SYSEG_EOF
+	for tool in $SYSEG_MISSING_TOOLS; do
+		echo "- $tool" >> syseg.log
+	done
+	AC_MSG_NOTICE([Some optional dependencies were not found. Details were written to ./syseg.log])
+	AC_MSG_NOTICE([Dumping ./syseg.log:])
+	cat syseg.log
+fi

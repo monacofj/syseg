@@ -1,0 +1,20 @@
+# SPDX-FileCopyrightText: 2021 Monaco F. J. <https://github.com/monacofj>
+#
+# SPDX-License-Identifier: GPL-3.0-or-later
+#
+# This file is part of SYSeg (https://github.com/monacofj/syseg)
+
+XORRISO = @XORRISO@
+OBJDUMP = @OBJDUMP@
+OBJCOPY = @OBJCOPY@
+READELF = @READELF@
+HEXDUMP = @HEXDUMP@
+SYSEG_AS = @SYSEG_AS@
+SYSEG_LD = @SYSEG_LD@
+MKFS_FAT = @MKFS_FAT@
+PARTED = @PARTED@
+MMD = @MMD@
+MCOPY = @MCOPY@
+QEMU_32 = @QEMU_32@
+QEMU_64 = @QEMU_64@
+ISOHYBRID_MBR = @ISOHYBRID_MBR@

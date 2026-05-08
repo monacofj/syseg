@@ -13,9 +13,44 @@ endif
 
 TOOLS_PATH = $(top_srcdir)/tools
 
+# Default tool dependencies, which can be overridden by environment variables
+XORRISO ?= require-xorriso
+OBJDUMP ?= require-objdump
+OBJCOPY ?= require-objcopy
+READELF ?= require-readelf
+HEXDUMP ?= require-hexdump
+SYSEG_AS ?= require-as
+SYSEG_LD ?= require-ld
+MKFS_FAT ?= require-mkfs.fat
+PARTED ?= require-parted
+MMD ?= require-mmd
+MCOPY ?= require-mcopy
+QEMU_32 ?= require-qemu-system-i386
+QEMU_64 ?= require-qemu-system-x86_64
+ISOHYBRID_MBR ?= require-isohdpfx.bin
+
+-include $(top_builddir)/tools/config.mk
+
 
 .PHONY: FORCE
 FORCE:
+
+.PHONY: require-%
+require-%: FORCE
+	@echo
+	@echo "error: required dependency '$*' was not found"
+	@echo "hint: install '$*' and rerun ./configure in the project root directory"
+	@echo
+	@exit 1
+
+DISASM_TOOLS = $(OBJDUMP)
+HEX_TOOLS = $(HEXDUMP)
+ELF_HEX_TOOLS = $(READELF) $(OBJCOPY) $(HEXDUMP)
+FAT12_TOOLS = $(MKFS_FAT)
+FAT32_TOOLS = $(PARTED) $(MKFS_FAT)
+EFI_TOOLS = $(PARTED) $(MKFS_FAT) $(MMD) $(MCOPY)
+CSM_FLOPPY_TOOLS = $(MKFS_FAT) $(MMD) $(MCOPY)
+CSM_DISK_TOOLS = $(PARTED) $(MKFS_FAT) $(MMD) $(MCOPY)
 
 .DELETE_ON_ERROR:
 
@@ -61,11 +96,11 @@ arch_i16 := i8086
 arch_i32 := i386
 arch_i64 := i386:x86-64
 
-%.bin/i16 %.bin/i32 %.bin/i64: %.bin FORCE
-	objdump -D -b binary -m $(arch_$(notdir $@)) -M intel $<
+%.bin/i16 %.bin/i32 %.bin/i64: %.bin FORCE $(DISASM_TOOLS)
+	$(OBJDUMP) -D -b binary -m $(arch_$(notdir $@)) -M intel $<
 
-%.bin/a16 %.bin/a32 %.bin/a64: %.bin FORCE
-	objdump -D -b binary -m $(arch_$(patsubst a%,i%,$(notdir $@))) $<
+%.bin/a16 %.bin/a32 %.bin/a64: %.bin FORCE $(DISASM_TOOLS)
+	$(OBJDUMP) -D -b binary -m $(arch_$(patsubst a%,i%,$(notdir $@))) $<
 
 #
 # Disassemble and ELF object / binary
@@ -101,45 +136,45 @@ arch_i64 := i386:x86-64
 
 # Disassemble loadable sections
 
-%.o/i: %.o FORCE
-	objdump -D $(LOADABLE) -M intel $<
+%.o/i: %.o FORCE $(DISASM_TOOLS)
+	$(OBJDUMP) -D $(LOADABLE) -M intel $<
 
-%.o/a: %.o FORCE
-	objdump -D $(LOADABLE) -M att $<
+%.o/a: %.o FORCE $(DISASM_TOOLS)
+	$(OBJDUMP) -D $(LOADABLE) -M att $<
 
-%.o/i16 %.o/i32 %.o/i64: %.o FORCE
-	objdump -D $(LOADABLE) -M intel,$(arch_$(notdir $@)) $<
+%.o/i16 %.o/i32 %.o/i64: %.o FORCE $(DISASM_TOOLS)
+	$(OBJDUMP) -D $(LOADABLE) -M intel,$(arch_$(notdir $@)) $<
 
-%.o/a16 %.o/a32 %.o/a64: %.o FORCE
-	objdump -D $(LOADABLE) -M att,$(arch_$(patsubst a%,i%,$(notdir $@))) $<
+%.o/a16 %.o/a32 %.o/a64: %.o FORCE $(DISASM_TOOLS)
+	$(OBJDUMP) -D $(LOADABLE) -M att,$(arch_$(patsubst a%,i%,$(notdir $@))) $<
 
 # Disassemble executable sections
 
-%.o/ix: %.o FORCE
-	objdump -d -M intel $<
+%.o/ix: %.o FORCE $(DISASM_TOOLS)
+	$(OBJDUMP) -d -M intel $<
 
-%.o/ax: %.o FORCE
-	objdump -d -M att $<
+%.o/ax: %.o FORCE $(DISASM_TOOLS)
+	$(OBJDUMP) -d -M att $<
 
-%.o/i16x %.o/i32x %.o/i64x: %.o FORCE
-	objdump -d -M intel,$(arch_$(patsubst %x,%,$(notdir $@))) $<
+%.o/i16x %.o/i32x %.o/i64x: %.o FORCE $(DISASM_TOOLS)
+	$(OBJDUMP) -d -M intel,$(arch_$(patsubst %x,%,$(notdir $@))) $<
 
-%.o/a16x %.o/a32x %.o/a64x: %.o FORCE
-	objdump -d -M att,$(arch_$(patsubst a%x,i%,$(notdir $@))) $<
+%.o/a16x %.o/a32x %.o/a64x: %.o FORCE $(DISASM_TOOLS)
+	$(OBJDUMP) -d -M att,$(arch_$(patsubst a%x,i%,$(notdir $@))) $<
 
 # Disassemble all sections 
 
-%.o/I: %.o FORCE
-	objdump -D -M intel $<
+%.o/I: %.o FORCE $(DISASM_TOOLS)
+	$(OBJDUMP) -D -M intel $<
 
-%.o/A: %.o FORCE
-	objdump -D -M att $<
+%.o/A: %.o FORCE $(DISASM_TOOLS)
+	$(OBJDUMP) -D -M att $<
 
-%.o/I16 %.o/I32 %.o/I64: %.o FORCE
-	objdump -D -M intel,$(arch_$(subst I,i,$(notdir $@))) $<
+%.o/I16 %.o/I32 %.o/I64: %.o FORCE $(DISASM_TOOLS)
+	$(OBJDUMP) -D -M intel,$(arch_$(subst I,i,$(notdir $@))) $<
 
-%.o/A16 %.o/A32 %.o/A64: %.o FORCE
-	objdump -D -M att,$(arch_$(subst A,i,$(notdir $@))) $<
+%.o/A16 %.o/A32 %.o/A64: %.o FORCE $(DISASM_TOOLS)
+	$(OBJDUMP) -D -M att,$(arch_$(subst A,i,$(notdir $@))) $<
 
 ##
 ## Dump hexadecimal bytes of a file
@@ -166,44 +201,44 @@ arch_i64 := i386:x86-64
 %.elf/hex: %.o/hex ;
 %.elf/hexx: %.o/hexx ;
 
-%.bin/hex: %.bin FORCE
-	hexdump -C $<
+%.bin/hex: %.bin FORCE $(HEX_TOOLS)
+	$(HEXDUMP) -C $<
 
-%.o/hex: %.o FORCE
+%.o/hex: %.o FORCE $(ELF_HEX_TOOLS)
 	@tmp=$$(mktemp /tmp/syseg-hex.XXXXXX); \
 	trap 'rm -f "$$tmp"' EXIT; \
 	for sec in $(LOADABLE_SECTIONS); do \
-		if readelf -SW $< | awk '$$1 == "[" { print $$3 }' | grep -Fx "$$sec" >/dev/null; then \
+		if $(READELF) -SW $< | awk '$$1 == "[" { print $$3 }' | grep -Fx "$$sec" >/dev/null; then \
 			echo ""; \
 			echo "$$sec:"; \
 			rm -f "$$tmp"; \
-			if objcopy --dump-section "$$sec=$$tmp" $< 2>/dev/null && [ -f "$$tmp" ]; then \
-				hexdump -C "$$tmp"; \
+			if $(OBJCOPY) --dump-section "$$sec=$$tmp" $< 2>/dev/null && [ -f "$$tmp" ]; then \
+				$(HEXDUMP) -C "$$tmp"; \
 			else \
 				echo "[no contents]"; \
 			fi; \
 		fi; \
 	done
 
-%.o/hexx: %.o FORCE
+%.o/hexx: %.o FORCE $(ELF_HEX_TOOLS)
 	@tmp=$$(mktemp /tmp/syseg-hex.XXXXXX); \
 	trap 'rm -f "$$tmp"' EXIT; \
-	for sec in $$(readelf -SW $< | awk '$$1 == "[" && index($$(NF-3),"X") { print $$3 }'); do \
+	for sec in $$($(READELF) -SW $< | awk '$$1 == "[" && index($$(NF-3),"X") { print $$3 }'); do \
 		echo ""; \
 		echo "$$sec:"; \
 		rm -f "$$tmp"; \
-		if objcopy --dump-section "$$sec=$$tmp" $< 2>/dev/null && [ -f "$$tmp" ]; then \
-			hexdump -C "$$tmp"; \
+		if $(OBJCOPY) --dump-section "$$sec=$$tmp" $< 2>/dev/null && [ -f "$$tmp" ]; then \
+			$(HEXDUMP) -C "$$tmp"; \
 		else \
 			echo "[no contents]"; \
 		fi; \
 	done
 
-%/h: % FORCE
-	@hexdump -v -e '16/1 "%02x " "\n"' $<
+%/h: % FORCE $(HEX_TOOLS)
+	@$(HEXDUMP) -v -e '16/1 "%02x " "\n"' $<
 
-%/Hex: % FORCE
-	hexdump -C $<
+%/Hex: % FORCE $(HEX_TOOLS)
+	$(HEXDUMP) -C $<
 
 
 ## 
@@ -229,20 +264,20 @@ FAT32_VBR_PAYLOAD_SIZE := $(shell echo $$(($(SECTOR_SIZE) - 90 - 2)))
 # This is an MBR bootstrap code for a FAT32 image, which loads the VBR code 
 # (e.g. a bootloader) from the active partition and transferring control to it.
 
-mbr-fat32.o : $(TOOLS_PATH)/mbr-fat32.S
-	as --32 $< -o $@
+mbr-fat32.o : $(TOOLS_PATH)/mbr-fat32.S $(SYSEG_AS)
+	$(SYSEG_AS) --32 $< -o $@
 
-mbr-fat32.bin : mbr-fat32.o $(TOOLS_PATH)/mbr-fat32.ld
-	ld -melf_i386 -T $(TOOLS_PATH)/mbr-fat32.ld $< -o $@
+mbr-fat32.bin : mbr-fat32.o $(TOOLS_PATH)/mbr-fat32.ld $(SYSEG_LD)
+	$(SYSEG_LD) -melf_i386 -T $(TOOLS_PATH)/mbr-fat32.ld $< -o $@
 
 
 # Build the object file as a payload for the VBR of a FAT partition.
 
-%-fat32.vbr : %.o $(TOOLS_PATH)/vbr-fat32.ld
-	ld -melf_i386 -T $(TOOLS_PATH)/vbr-fat32.ld $< -o $@
+%-fat32.vbr : %.o $(TOOLS_PATH)/vbr-fat32.ld $(SYSEG_LD)
+	$(SYSEG_LD) -melf_i386 -T $(TOOLS_PATH)/vbr-fat32.ld $< -o $@
 
-%-fat12.vbr : %.o $(TOOLS_PATH)/vbr-fat12.ld
-	ld -melf_i386 -T $(TOOLS_PATH)/vbr-fat12.ld $< -o $@
+%-fat12.vbr : %.o $(TOOLS_PATH)/vbr-fat12.ld $(SYSEG_LD)
+	$(SYSEG_LD) -melf_i386 -T $(TOOLS_PATH)/vbr-fat12.ld $< -o $@
 	
 
 #
@@ -252,34 +287,34 @@ mbr-fat32.bin : mbr-fat32.o $(TOOLS_PATH)/mbr-fat32.ld
 # Create a FAT12 floppy disk image if we can build the payload  as an
 # ELF object file (i.e. there is a rule to build %.o from the source file).  
 
-%-floppy.img : %-fat12.vbr
+%-floppy.img : %-fat12.vbr $(FAT12_TOOLS)
 	rm -f $@
 	dd if=/dev/zero of=$@ bs=$(SECTOR_SIZE) count=$(FLOPPY_SECTORS)
-	mkfs.fat -F12 $@
+	$(MKFS_FAT) -F12 $@
 	dd if=$< of=$@ bs=1 seek=62 conv=notrunc 
 
 # Create a FAT12 floppy disk from a binary file, if we can only build 
 # the payload as a flat binary (i.e. there is a rule to build %.bin from the 
 # source file, but there is no rule to build %.o) 
 
-%-floppy.img : %.bin
+%-floppy.img : %.bin $(FAT12_TOOLS)
 	rm -f $@
 	dd if=/dev/zero of=$@ bs=$(SECTOR_SIZE) count=$(FLOPPY_SECTORS)
-	mkfs.fat -F12 $@
+	$(MKFS_FAT) -F12 $@
 	dd if=$< of=$@ bs=1 seek=62 conv=notrunc count=$(FAT12_VBR_PAYLOAD_SIZE)
 
 # Create a FAT32 disk image if we can build the payload  as an
 # ELF object file (i.e. there is a rule to build %.o from the source file).
 # The payload is stored in the VBR of the unique FAT32 partition. 
 
-%-disk.img : %-fat32.vbr mbr-fat32.bin 
+%-disk.img : %-fat32.vbr mbr-fat32.bin $(FAT32_TOOLS)
 	rm -f $@
 	dd if=/dev/zero of=$@ bs=$(SECTOR_SIZE) count=$(DISK_SECTORS)
-	parted -s $@ mklabel msdos
-	parted -s $@ unit s mkpart primary fat32 $(PART1_START) $(PART1_LAST_SECTOR)
-	parted -s $@ set 1 boot on
-	parted -s $@ set 1 esp on
-	mkfs.fat -F32 --offset $(PART1_START) $@
+	$(PARTED) -s $@ mklabel msdos
+	$(PARTED) -s $@ unit s mkpart primary fat32 $(PART1_START) $(PART1_LAST_SECTOR)
+	$(PARTED) -s $@ set 1 boot on
+	$(PARTED) -s $@ set 1 esp on
+	$(MKFS_FAT) -F32 --offset $(PART1_START) $@
 	dd if=mbr-fat32.bin of=$@ bs=446 count=1 conv=notrunc
 	dd if=$< of=$@ bs=1 seek=$$(($(PART1_OFFSET) + 90)) conv=notrunc
 
@@ -289,14 +324,14 @@ mbr-fat32.bin : mbr-fat32.o $(TOOLS_PATH)/mbr-fat32.ld
 # source file, but there is no rule to build %.o).
 # The payload is stored in the VBR of the unique FAT32 partition. 
 
-%-disk.img : %.bin mbr-fat32.bin 
+%-disk.img : %.bin mbr-fat32.bin $(FAT32_TOOLS)
 	rm -f $@
 	dd if=/dev/zero of=$@ bs=$(SECTOR_SIZE) count=$(DISK_SECTORS)
-	parted -s $@ mklabel msdos
-	parted -s $@ unit s mkpart primary fat32 $(PART1_START) $(PART1_LAST_SECTOR)
-	parted -s $@ set 1 boot on
-	parted -s $@ set 1 esp on
-	mkfs.fat -F32 --offset $(PART1_START) $@
+	$(PARTED) -s $@ mklabel msdos
+	$(PARTED) -s $@ unit s mkpart primary fat32 $(PART1_START) $(PART1_LAST_SECTOR)
+	$(PARTED) -s $@ set 1 boot on
+	$(PARTED) -s $@ set 1 esp on
+	$(MKFS_FAT) -F32 --offset $(PART1_START) $@
 	dd if=mbr-fat32.bin of=$@ bs=446 count=1 conv=notrunc
 	dd if=$< of=$@ bs=1 seek=$$(($(PART1_OFFSET) + 90)) conv=notrunc \
 	   count=$(FAT32_VBR_PAYLOAD_SIZE)
@@ -308,17 +343,17 @@ mbr-fat32.bin : mbr-fat32.o $(TOOLS_PATH)/mbr-fat32.ld
 # Create a FAT32 disk image containing the .efi file in the default 
 # path for UEFI booting. The application %.efi is the payload.
 
-%-disk.img : %.efi
+%-disk.img : %.efi $(EFI_TOOLS)
 	rm -f $@
 	dd if=/dev/zero of=$@ bs=$(SECTOR_SIZE) count=$(DISK_SECTORS)
-	parted -s $@ mklabel msdos
-	parted -s $@ unit s mkpart primary fat32 $(PART1_START) $(PART1_LAST_SECTOR)
-	parted -s $@ set 1 boot on
-	parted -s $@ set 1 esp on
-	mkfs.fat -F32 --offset $(PART1_START) $@
-	mmd -i $@@@$(PART1_OFFSET) ::/EFI
-	mmd -i $@@@$(PART1_OFFSET) ::/EFI/BOOT
-	mcopy -i $@@@$(PART1_OFFSET) $< ::/EFI/BOOT/BOOTX64.EFI
+	$(PARTED) -s $@ mklabel msdos
+	$(PARTED) -s $@ unit s mkpart primary fat32 $(PART1_START) $(PART1_LAST_SECTOR)
+	$(PARTED) -s $@ set 1 boot on
+	$(PARTED) -s $@ set 1 esp on
+	$(MKFS_FAT) -F32 --offset $(PART1_START) $@
+	$(MMD) -i $@@@$(PART1_OFFSET) ::/EFI
+	$(MMD) -i $@@@$(PART1_OFFSET) ::/EFI/BOOT
+	$(MCOPY) -i $@@@$(PART1_OFFSET) $< ::/EFI/BOOT/BOOTX64.EFI
 
 
 #
@@ -329,50 +364,50 @@ mbr-fat32.bin : mbr-fat32.o $(TOOLS_PATH)/mbr-fat32.ld
 # ELF object file (i.e. there is a rule to build %.o from the source file). 
 # A CSM wrapper is added to the image to allow legacy BIOS booting from a UEFI.
 
-%-floppy-csm.img : %.bin $(CSM_64) $(CSM_32)
+%-floppy-csm.img : %.bin $(CSM_64) $(CSM_32) $(CSM_FLOPPY_TOOLS)
 	rm -f $@
 	dd if=/dev/zero of=$@ bs=$(SECTOR_SIZE) count=$(FLOPPY_SECTORS)
-	mkfs.fat -F12 $@
+	$(MKFS_FAT) -F12 $@
 	dd if=$< of=$@ bs=1 seek=62 conv=notrunc count=$(FAT12_VBR_PAYLOAD_SIZE)
-	mmd -i $@@@0 ::/EFI
-	mmd -i $@@@0 ::/EFI/BOOT
-	mcopy -i $@@@0 $(CSM_64) ::/EFI/BOOT/BOOTX64.EFI
-	mcopy -i $@@@0 $(CSM_32) ::/EFI/BOOT/BOOTIA32.EFI
+	$(MMD) -i $@@@0 ::/EFI
+	$(MMD) -i $@@@0 ::/EFI/BOOT
+	$(MCOPY) -i $@@@0 $(CSM_64) ::/EFI/BOOT/BOOTX64.EFI
+	$(MCOPY) -i $@@@0 $(CSM_32) ::/EFI/BOOT/BOOTIA32.EFI
 
 # Create a FAT12 floppy disk from a binary file, if we can only build 
 # the payload as a flat binary (i.e. there is a rule to build %.bin from the 
 # source file, but there is no rule to build %.o).
 # A CSM wrapper is added to the image to allow legacy BIOS booting from a UEFI.
 
-%-floppy-csm.img : %-fat12.vbr
+%-floppy-csm.img : %-fat12.vbr $(CSM_FLOPPY_TOOLS)
 	rm -f $@
 	dd if=/dev/zero of=$@ bs=$(SECTOR_SIZE) count=$(FLOPPY_SECTORS)
-	mkfs.fat -F12 $@
+	$(MKFS_FAT) -F12 $@
 	dd if=$< of=$@ bs=1 seek=62 conv=notrunc 
-	mmd -i $@@@0 ::/EFI
-	mmd -i $@@@0 ::/EFI/BOOT
-	mcopy -i $@@@0 $(CSM_64) ::/EFI/BOOT/BOOTX64.EFI
-	mcopy -i $@@@0 $(CSM_32) ::/EFI/BOOT/BOOTIA32.EFI
+	$(MMD) -i $@@@0 ::/EFI
+	$(MMD) -i $@@@0 ::/EFI/BOOT
+	$(MCOPY) -i $@@@0 $(CSM_64) ::/EFI/BOOT/BOOTX64.EFI
+	$(MCOPY) -i $@@@0 $(CSM_32) ::/EFI/BOOT/BOOTIA32.EFI
 
 # Create a FAT32 disk image if we can build the payload  as an
 # ELF object file (i.e. there is a rule to build %.o from the source file).
 # The payload is stored in the VBR of the unique FAT32 partition. 
 # A CSM wrapper is added to the image to allow legacy BIOS booting from a UEFI.
 
-%-disk-csm.img : %-fat32.vbr mbr-fat32.bin $(CSM_64) $(CSM_32)
+%-disk-csm.img : %-fat32.vbr mbr-fat32.bin $(CSM_64) $(CSM_32) $(CSM_DISK_TOOLS)
 	rm -f $@
 	dd if=/dev/zero of=$@ bs=$(SECTOR_SIZE) count=$(DISK_SECTORS)
-	parted -s $@ mklabel msdos
-	parted -s $@ unit s mkpart primary fat32 $(PART1_START) $(PART1_LAST_SECTOR)
-	parted -s $@ set 1 boot on
-	parted -s $@ set 1 esp on
-	mkfs.fat -F32 --offset $(PART1_START) $@
+	$(PARTED) -s $@ mklabel msdos
+	$(PARTED) -s $@ unit s mkpart primary fat32 $(PART1_START) $(PART1_LAST_SECTOR)
+	$(PARTED) -s $@ set 1 boot on
+	$(PARTED) -s $@ set 1 esp on
+	$(MKFS_FAT) -F32 --offset $(PART1_START) $@
 	dd if=mbr-fat32.bin of=$@ bs=446 count=1 conv=notrunc
 	dd if=$< of=$@ bs=1 seek=$$(($(PART1_OFFSET) + 90)) conv=notrunc
-	mmd -i $@@@$(PART1_OFFSET) ::/EFI
-	mmd -i $@@@$(PART1_OFFSET) ::/EFI/BOOT
-	mcopy -i $@@@$(PART1_OFFSET) $(CSM_64) ::/EFI/BOOT/BOOTX64.EFI
-	mcopy -i $@@@$(PART1_OFFSET) $(CSM_32) ::/EFI/BOOT/BOOTIA32.EFI
+	$(MMD) -i $@@@$(PART1_OFFSET) ::/EFI
+	$(MMD) -i $@@@$(PART1_OFFSET) ::/EFI/BOOT
+	$(MCOPY) -i $@@@$(PART1_OFFSET) $(CSM_64) ::/EFI/BOOT/BOOTX64.EFI
+	$(MCOPY) -i $@@@$(PART1_OFFSET) $(CSM_32) ::/EFI/BOOT/BOOTIA32.EFI
 
 # Create a FAT32 floppy disk from a binary file, if we can only build 
 # the payload as a flat binary (i.e. there is a rule to build %.bin from the 
@@ -380,30 +415,42 @@ mbr-fat32.bin : mbr-fat32.o $(TOOLS_PATH)/mbr-fat32.ld
 # The payload is stored in the VBR of the unique FAT32 partition.
 # A CSM wrapper is added to the image to allow legacy BIOS booting from a UEFI. 
 
-%-disk-csm.img : %.bin mbr-fat32.bin $(CSM_64) $(CSM_32)
+%-disk-csm.img : %.bin mbr-fat32.bin $(CSM_64) $(CSM_32) $(CSM_DISK_TOOLS)
 	rm -f $@
 	dd if=/dev/zero of=$@ bs=$(SECTOR_SIZE) count=$(DISK_SECTORS)
-	parted -s $@ mklabel msdos
-	parted -s $@ unit s mkpart primary fat32 $(PART1_START) $(PART1_LAST_SECTOR)
-	parted -s $@ set 1 boot on
-	parted -s $@ set 1 esp on
-	mkfs.fat -F32 --offset $(PART1_START) $@
+	$(PARTED) -s $@ mklabel msdos
+	$(PARTED) -s $@ unit s mkpart primary fat32 $(PART1_START) $(PART1_LAST_SECTOR)
+	$(PARTED) -s $@ set 1 boot on
+	$(PARTED) -s $@ set 1 esp on
+	$(MKFS_FAT) -F32 --offset $(PART1_START) $@
 	dd if=mbr-fat32.bin of=$@ bs=446 count=1 conv=notrunc
 	dd if=$< of=$@ bs=1 seek=$$(($(PART1_OFFSET) + 90)) conv=notrunc \
 	   count=$(FAT32_VBR_PAYLOAD_SIZE)
-	mmd -i $@@@$(PART1_OFFSET) ::/EFI
-	mmd -i $@@@$(PART1_OFFSET) ::/EFI/BOOT
-	mcopy -i $@@@$(PART1_OFFSET) $(CSM_64) ::/EFI/BOOT/BOOTX64.EFI
-	mcopy -i $@@@$(PART1_OFFSET) $(CSM_32) ::/EFI/BOOT/BOOTIA32.EFI
+	$(MMD) -i $@@@$(PART1_OFFSET) ::/EFI
+	$(MMD) -i $@@@$(PART1_OFFSET) ::/EFI/BOOT
+	$(MCOPY) -i $@@@$(PART1_OFFSET) $(CSM_64) ::/EFI/BOOT/BOOTX64.EFI
+	$(MCOPY) -i $@@@$(PART1_OFFSET) $(CSM_32) ::/EFI/BOOT/BOOTIA32.EFI
 
+
+#
+# Prepare hybrid ISO images for booting from CD-ROM or USB flash drive.
+#
+
+%.iso : %-floppy-csm.img $(XORRISO) $(ISOHYBRID_MBR)
+	$(XORRISO) -as mkisofs -o $@ \
+	  -c boot.cat \
+	  -b $< -no-emul-boot -boot-load-size 4 \
+	  -eltorito-alt-boot \
+	  -e $< -no-emul-boot \
+	  -isohybrid-mbr $(ISOHYBRID_MBR) \
+	  -isohybrid-gpt-basdat \
+	  ./
 
 
 ## 
 ## Boot a binary file or a floppy/disk image in QEMU
 ##
 
-QEMU_32 ?= qemu-system-i386   # QEMU executable for 32-bit emulation
-QEMU_64 ?= qemu-system-x86_64 # QEMU executable for 64-bit emulation
 OVMF_CODE ?= /usr/share/OVMF/OVMF_CODE_4M.fd # OVMF code firmware
 OVMF_VARS_TEMPLATE ?= /usr/share/OVMF/OVMF_VARS_4M.fd # OVMF variables template
 OVMF_VARS_LOCAL ?= ovmf-vars.fd # Local copy of OVMF variables 
@@ -412,13 +459,27 @@ SMP ?= 2                     # Number of CPU cores to allocate for QEMU
 
 # Use this to boot an image in QEMU with BIOS legacy booting.
 
-%/bios : %
+%.iso/bios : %.iso $(QEMU_32)
+	$(QEMU_32) \
+		-cdrom $< -boot d -net none
+
+%/bios : % $(QEMU_32)
 	$(QEMU_32) \
 		-drive format=raw,file=$< -boot c -net none
 
 # Use this to boot an image in QEMU with UEFI firmware (native or CSM-wrapped).
 
-%/uefi : %  $(OVMF_VARS_LOCAL)
+%.iso/uefi : %.iso $(OVMF_VARS_LOCAL) $(QEMU_64)
+	$(QEMU_64) \
+		-drive if=pflash,format=raw,readonly=on,file=$(OVMF_CODE) \
+		-drive if=pflash,format=raw,file=$(OVMF_VARS_LOCAL) \
+		-drive media=cdrom,file=$< \
+		-net none \
+		-smp $(SMP) \
+		-m $(MEM) \
+		-vga std
+
+%/uefi : % $(OVMF_VARS_LOCAL) $(QEMU_64)
 	$(QEMU_64) \
 		-drive if=pflash,format=raw,readonly=on,file=$(OVMF_CODE) \
 		-drive if=pflash,format=raw,file=$(OVMF_VARS_LOCAL) \
