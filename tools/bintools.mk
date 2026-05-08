@@ -238,7 +238,7 @@ arch_i64 := i386:x86-64
 	@$(HEXDUMP) -v -e '16/1 "%02x " "\n"' $<
 
 %/Hex: % FORCE $(HEX_TOOLS)
-	$(HEXDUMP) -C $<
+	@$(HEXDUMP) -C $<
 
 
 ## 
