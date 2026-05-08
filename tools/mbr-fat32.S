@@ -23,7 +23,10 @@ _start:
 	# Some BIOS implementations touch the BPB-looking area after loading a
 	# boot sector; at this point they do not know whether it is an MBR or a
 	# VBR.  Keep the real bootstrap code past the FAT32 BPB area.
+
 	.zero 0x5a - (. - _start)
+
+	# Canonicalize segment registers
 
 boot_start:
 	cli
@@ -34,7 +37,15 @@ boot_start:
 	movw  $0x7c00, %sp
 	cld
 
+	# Some BIOSes keep a nonzero active text page. Force page 0 so any
+	# diagnostics printed by int 10h/ah=0x0e are visible on screen.
+
+	movb  $0x05, %ah
+	xorb  %al, %al
+	int   $0x10
+
 	# Move the full boot sector away before loading the partition VBR at 0x7c00.
+
 	movw  $0x7c00, %si
 	movw  $RELOC_BASE, %di
 	movw  $256, %cx
@@ -86,6 +97,7 @@ print_string:
 	testb %al, %al
 	je    print_done
 	movb  $0x0e, %ah
+	xorb  %bh, %bh   # Some very old BIOSes wants BH to match the active page
 	int   $0x10
 	jmp   print_string
 
@@ -102,8 +114,8 @@ boot_drive:
 	.align 2
 dap:
 	.byte 16			# DAP size
-	.byte 0			# reserved
-	.word 1			# sectors to read
+	.byte 0			    # reserved
+	.word 1			    # sectors to read
 	.word 0x7c00		# target offset
 	.word 0x0000		# target segment
 dap_lba:
