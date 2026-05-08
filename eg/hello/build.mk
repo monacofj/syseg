@@ -35,13 +35,76 @@ hello-02.bin : hello-02.hex
 # Variation of hello-02.bin for BIOSes that may overwrite BPB fields in the
 # loaded boot sector, assuming a FAT filesystem. The trick is to leave room
 # where a FAT BPB would be and start the sector with a jump over that area.
-# Common reports mention BIOSes overwriting offset 0x24, the drive number in
-# a FAT16 BPB; FAT32 puts that field at 0x40. This version leaves the whole
-# FAT32 BPB area free: EB 58 jumps from offset 0x02 to code at offset 0x5a.
-
+# Common reports mention BIOSes overwriting offset 0x24  (the drive number in
+# a FAT12 BPB), what may affect boot via USB-FDD emulation. This version spares
+# room to the whole FAT12 header and jumps to offset 0x3e (62), where the
+# executable code starts.
 
 hello-02a.bin : hello-02a.hex
 	$(TOOLS_PATH)/hex2bin < $< > $@
+
+# An alternative to placate presumptuous BPB-overwritting BIOSes: use a true
+# FAT12 media. First, create a 1.44M floppy disk image and format it. The
+# formatting program will prepare the boot sector (sector 0) with a complete
+# FAT12 header and the boot signature. The FAT header will include the
+# leading instruction to bypass the BPB and lands at 0x3e. Usually, the
+# program will include also a small bootable program that just outputs
+# a message telling that the disk has no system to boot. We then overwrite
+# this program with our own. 
+#
+# Try
+#
+# make hello-02-floppy.img
+# make hello-02-floppy.img/bios
+#
+# If your computer happens to have a UEFI class 3 firmware, without support
+# for legacy BIOS booting, you may try to build a floppy image containing
+# a software implementation of a BIOS-compatible CSM, which should load the
+# the program from the boot sector and run it in real-mode.
+#
+# Try
+#
+# make hello-02-floppy-csm.img
+# make hello-02-floppy-csm.img/bios
+# make hello-02-floppy-csm.img/uefi
+#
+# Then write the image to an USB flash stick and boot the hardware with it.
+#
+# As a last resort in the event your UEFI has trouble booting via USB-FDD,
+# proceed as above but replacing the image name hello-02-floppy-csm.img 
+# with hello-02-disk-csm.img
+
+# The same program as hello-02.hex but in NASM assembly.
+
+hello-03.bin : hello-03.asm
+	$(NASM) -f bin $< -o $@
+
+# An improved version of the former program, using a loop.
+
+hello-04.bin : hello-04.asm
+	$(NASM) -f bin $< -o $@
+
+# A manual fix (workaround) for hello-04.asm
+
+hello-05.bin : hello-05.asm
+	$(NASM) -f bin $< -o $@
+
+hello-05a.bin : hello-05a.asm
+	$(NASM) -f bin $< -o $@
+
+hello-05b.bin : hello-05b.asm
+	$(NASM) -f bin $< -o $@
+
+# The propper way to fix hello-04.asm with 'org' directive
+
+hello-06.bin : hello-06.asm
+	$(NASM) -f bin $< -o $@
+
+hello-06a.bin : hello-06a.asm
+	$(NASM) -f bin $< -o $@
+
+hello-06b.bin : hello-06b.asm
+	$(NASM) -f bin $< -o $@
 
 
 #############
@@ -70,5 +133,5 @@ hello-uefi.efi : hello-uefi.o
 .PHONY: manual-clean
 
 manual-clean:
-	rm -f *.o *.bin *.img *.efi *.fd *.vbr *.csm
+	rm -f *.o *.bin *.img *.efi *.fd *.vbr *.csm *.iso
 	rm -f hello-00 hello-01
