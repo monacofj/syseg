@@ -29,8 +29,8 @@ start:
 loop:                           
         mov al, [msg + si] 
         cmp al, 0x0                    
-        int 0x10                 
         je halt                     
+        int 0x10                 
         add si, 0x1                 
         jmp loop                    
 
