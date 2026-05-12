@@ -25,3 +25,6 @@ msg:
         
         times 510 - ($-$$) db 0     
         dw 0xaa55
+
+	;; Notice: this won't work for floppy or disk images.
+	;; See hello-05a.asm and hello-05b.asm.

@@ -107,6 +107,22 @@ hello-06b.bin : hello-06b.asm
 	$(NASM) -f bin $< -o $@
 
 
+# Canonicalization of segement registers
+
+hello-07.bin : hello-07.asm
+	$(NASM) -f bin $< -o $@
+
+hello-07a.bin : hello-07a.asm
+	$(NASM) -f bin $< -o $@
+
+hello-07b.bin : hello-07b.asm
+	$(NASM) -f bin $< -o $@
+
+# Bonus: using VRAN instead of BIOS int 0x10
+
+vram.bin : vram.asm
+	$(NASM) -f bin $< -o $@
+
 #############
 hello.o : hello-bios.S
 	as --32 $< -o $@
