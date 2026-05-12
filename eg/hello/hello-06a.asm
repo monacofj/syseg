@@ -10,7 +10,7 @@
 
 	bits 16  
 
-	org 0x7c62
+	org 0x7c3e
 	
         mov ah, 0xe                 
         mov si, 0x00                
