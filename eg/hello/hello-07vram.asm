@@ -9,7 +9,7 @@
 	
 	bits 16     
               
-        org 0x7c00           
+        org ORG           
 
         xor ax, ax         ; Data segments as 0000
         mov ds, ax

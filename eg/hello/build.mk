@@ -121,8 +121,14 @@ hello-07-disk.bin : hello-07.asm
 
 # Bonus: using VRAN instead of BIOS int 0x10
 
-vram.bin : vram.asm
-	$(NASM) -f bin $< -o $@
+hello-07vram.bin : hello-07vram.asm
+	$(NASM) -f bin $< -DORG=0x7c00 -o $@
+
+hello-07vram-floppy.bin : hello-07vram.asm
+	$(NASM) -f bin $< -DORG=0x7c3e -o $@
+
+hello-07vram-disk.bin : hello-07vram.asm
+	$(NASM) -f bin $< -DORG=0x7c5a -o $@
 
 # Like hello-07.asm but including rt0.asm.
 
