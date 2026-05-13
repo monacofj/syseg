@@ -54,7 +54,7 @@ CSM_DISK_TOOLS = $(PARTED) $(MKFS_FAT) $(MMD) $(MCOPY)
 
 .DELETE_ON_ERROR:
 
-.PRECIOUS: %.o %.bin %.vbr %.efi %.img
+.PRECIOUS: %.o %.bin %-floppy.bin %-disk.bin %.vbr %.efi %.img
 .PRECIOUS: %-floppy.img %-disk.img %-csm.img
 .PRECIOUS: %-floppy-csm.img %-disk-csm.img
 
@@ -294,10 +294,10 @@ mbr-fat32.bin : mbr-fat32.o $(TOOLS_PATH)/mbr-fat32.ld $(SYSEG_LD)
 	dd if=$< of=$@ bs=1 seek=62 conv=notrunc 
 
 # Create a FAT12 floppy disk from a binary file, if we can only build 
-# the payload as a flat binary (i.e. there is a rule to build %.bin from the 
-# source file, but there is no rule to build %.o) 
+# the payload as a flat binary (i.e. there is a rule to build %-floppy.bin
+# from the source file, but there is no rule to build %.o).
 
-%-floppy.img : %.bin $(FAT12_TOOLS)
+%-floppy.img : %-floppy.bin $(FAT12_TOOLS)
 	rm -f $@
 	dd if=/dev/zero of=$@ bs=$(SECTOR_SIZE) count=$(FLOPPY_SECTORS)
 	$(MKFS_FAT) -F12 $@
@@ -320,11 +320,11 @@ mbr-fat32.bin : mbr-fat32.o $(TOOLS_PATH)/mbr-fat32.ld $(SYSEG_LD)
 
 
 # Create a FAT32 floppy disk from a binary file, if we can only build 
-# the payload as a flat binary (i.e. there is a rule to build %.bin from the 
-# source file, but there is no rule to build %.o).
+# the payload as a flat binary (i.e. there is a rule to build %-disk.bin from
+# the source file, but there is no rule to build %.o).
 # The payload is stored in the VBR of the unique FAT32 partition. 
 
-%-disk.img : %.bin mbr-fat32.bin $(FAT32_TOOLS)
+%-disk.img : %-disk.bin mbr-fat32.bin $(FAT32_TOOLS)
 	rm -f $@
 	dd if=/dev/zero of=$@ bs=$(SECTOR_SIZE) count=$(DISK_SECTORS)
 	$(PARTED) -s $@ mklabel msdos
@@ -364,7 +364,7 @@ mbr-fat32.bin : mbr-fat32.o $(TOOLS_PATH)/mbr-fat32.ld $(SYSEG_LD)
 # ELF object file (i.e. there is a rule to build %.o from the source file). 
 # A CSM wrapper is added to the image to allow legacy BIOS booting from a UEFI.
 
-%-floppy-csm.img : %.bin $(CSM_64) $(CSM_32) $(CSM_FLOPPY_TOOLS)
+%-floppy-csm.img : %-floppy.bin $(CSM_64) $(CSM_32) $(CSM_FLOPPY_TOOLS)
 	rm -f $@
 	dd if=/dev/zero of=$@ bs=$(SECTOR_SIZE) count=$(FLOPPY_SECTORS)
 	$(MKFS_FAT) -F12 $@
@@ -375,8 +375,8 @@ mbr-fat32.bin : mbr-fat32.o $(TOOLS_PATH)/mbr-fat32.ld $(SYSEG_LD)
 	$(MCOPY) -i $@@@0 $(CSM_32) ::/EFI/BOOT/BOOTIA32.EFI
 
 # Create a FAT12 floppy disk from a binary file, if we can only build 
-# the payload as a flat binary (i.e. there is a rule to build %.bin from the 
-# source file, but there is no rule to build %.o).
+# the payload as a flat binary (i.e. there is a rule to build %-floppy.bin
+# from the source file, but there is no rule to build %.o).
 # A CSM wrapper is added to the image to allow legacy BIOS booting from a UEFI.
 
 %-floppy-csm.img : %-fat12.vbr $(CSM_FLOPPY_TOOLS)
@@ -410,12 +410,12 @@ mbr-fat32.bin : mbr-fat32.o $(TOOLS_PATH)/mbr-fat32.ld $(SYSEG_LD)
 	$(MCOPY) -i $@@@$(PART1_OFFSET) $(CSM_32) ::/EFI/BOOT/BOOTIA32.EFI
 
 # Create a FAT32 floppy disk from a binary file, if we can only build 
-# the payload as a flat binary (i.e. there is a rule to build %.bin from the 
-# source file, but there is no rule to build %.o).
+# the payload as a flat binary (i.e. there is a rule to build %-disk.bin from
+# the source file, but there is no rule to build %.o).
 # The payload is stored in the VBR of the unique FAT32 partition.
 # A CSM wrapper is added to the image to allow legacy BIOS booting from a UEFI. 
 
-%-disk-csm.img : %.bin mbr-fat32.bin $(CSM_64) $(CSM_32) $(CSM_DISK_TOOLS)
+%-disk-csm.img : %-disk.bin mbr-fat32.bin $(CSM_64) $(CSM_32) $(CSM_DISK_TOOLS)
 	rm -f $@
 	dd if=/dev/zero of=$@ bs=$(SECTOR_SIZE) count=$(DISK_SECTORS)
 	$(PARTED) -s $@ mklabel msdos
