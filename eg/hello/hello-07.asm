@@ -9,7 +9,7 @@
 	
 	bits 16     
               
-        org 0x7c00           
+        org ORG	           ; Defined in the command line.
 
         xor ax, ax         ; Data segments as 0000
         mov ds, ax
@@ -41,5 +41,6 @@ msg:
         times 510 - ($-$$) db 0     
         dw 0xaa55     
 
-	;; Notice: this won't work for floppy or disk images.
-	;; See hello-06a.asm and hello-06b.asm.
+	;; Note: In these and following examples, we're avoinding the need to
+	;; write  3 versions of the code for each case: bin, floppy and disk.
+	;; Instead, we pass ORG in the command line.

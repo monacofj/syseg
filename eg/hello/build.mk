@@ -89,10 +89,10 @@ hello-04.bin : hello-04.asm
 hello-05.bin : hello-05.asm
 	$(NASM) -f bin $< -o $@
 
-hello-05a.bin : hello-05a.asm
+hello-05-floppy.bin : hello-05-floppy.asm
 	$(NASM) -f bin $< -o $@
 
-hello-05b.bin : hello-05b.asm
+hello-05-disk.bin : hello-05-disk.asm
 	$(NASM) -f bin $< -o $@
 
 # The propper way to fix hello-04.asm with 'org' directive
@@ -100,28 +100,51 @@ hello-05b.bin : hello-05b.asm
 hello-06.bin : hello-06.asm
 	$(NASM) -f bin $< -o $@
 
-hello-06a.bin : hello-06a.asm
+hello-06-floppy.bin : hello-06-floppy.asm
 	$(NASM) -f bin $< -o $@
 
-hello-06b.bin : hello-06b.asm
+hello-06-disk.bin : hello-06-disk.asm
 	$(NASM) -f bin $< -o $@
 
 
 # Canonicalization of segement registers
 
-hello-07.bin : hello-07.asm
-	$(NASM) -f bin $< -o $@
 
-hello-07a.bin : hello-07a.asm
-	$(NASM) -f bin $< -o $@
+hello-07.bin : hello-07.asm	
+	$(NASM) -f bin $< -DORG=0x7c00 -o $@
 
-hello-07b.bin : hello-07b.asm
-	$(NASM) -f bin $< -o $@
+hello-07-floppy.bin : hello-07.asm	
+	$(NASM) -f bin $< -DORG=0x7c3e -o $@
+
+hello-07-disk.bin : hello-07.asm	
+	$(NASM) -f bin $< -DORG=0x7c5a -o $@
 
 # Bonus: using VRAN instead of BIOS int 0x10
 
 vram.bin : vram.asm
 	$(NASM) -f bin $< -o $@
+
+# Like hello-07.asm but including rt0.asm.
+
+hello-08.bin : hello-08.asm
+	$(NASM) -f bin -DORG=0x7c00 $< -o $@
+
+hello-08-floppy.bin : hello-08.asm
+	$(NASM) -f bin -DORG=0x7c3e $< -o $@
+
+hello-08-disk.bin : hello-08.asm
+	$(NASM) -f bin -DORG=0x7c5a $< -o $@
+
+# Callable subroutine
+
+hello-09.bin : hello-09.asm
+	$(NASM) -f bin -DORG=0x7c00 $< -o $@
+
+hello-09-floppy.bin : hello-09.asm
+	$(NASM) -f bin -DORG=0x7c3e $< -o $@
+
+hello-09-disk.bin : hello-09.asm
+	$(NASM) -f bin -DORG=0x7c5a $< -o $@
 
 #############
 hello.o : hello-bios.S
@@ -141,6 +164,12 @@ hello-uefi.efi : hello-uefi.o
 
 %.o : %.c
 	$(CC) -m16 -Og $(LEAN_ASM) -c $< -o $@
+
+%-floppy.bin : %.bin
+	cp $< $@
+
+%-disk.bin : %.bin
+	cp $< $@
 
 %.bin : %.o
 	ld -melf_i386 -T bin.ld $< -o $@

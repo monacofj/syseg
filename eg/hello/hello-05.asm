@@ -27,4 +27,4 @@ msg:
         dw 0xaa55
 
 	;; Notice: this won't work for floppy or disk images.
-	;; See hello-05a.asm and hello-05b.asm.
+	;; See hello-05-floppy.asm and hello-05-disk.asm.
