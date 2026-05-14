@@ -202,7 +202,7 @@ arch_i64 := i386:x86-64
 %.elf/hexx: %.o/hexx ;
 
 %.bin/hex: %.bin FORCE $(HEX_TOOLS)
-	$(HEXDUMP) -C $<
+	@$(HEXDUMP) -C $<
 
 %.o/hex: %.o FORCE $(ELF_HEX_TOOLS)
 	@tmp=$$(mktemp /tmp/syseg-hex.XXXXXX); \
