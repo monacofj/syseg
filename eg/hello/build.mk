@@ -152,6 +152,25 @@ hello-09-floppy.bin : hello-09.asm
 hello-09-disk.bin : hello-09.asm
 	$(NASM) -f bin -DORG=0x7c5a $< -o $@
 
+
+
+##
+## Auxiliary examples
+##
+
+extra-01a.bin : extra-01a.asm
+	$(NASM) -f bin $< -o $@
+
+extra-01b.bin : extra-01b.asm
+	$(NASM) -f bin $< -o $@
+
+extra-02.o : extra-02.asm
+	$(NASM) -f elf32 $< -o $@
+
+extra-02.bin : extra-02.o
+	$(LD) -melf_i386 -T extra-02.ld $< -o $@
+
+
 #############
 hello.o : hello-bios.S
 	as --32 $< -o $@
