@@ -8,6 +8,8 @@
 	
         bits 16
 
+	section .text
+	
 	global hello		; Tell the assmebler to make this symbol
 	                        ; available for the linker. 
  hello:
@@ -23,5 +25,7 @@
  end:
     	ret
 
+	section .rodata
+	
  msg:
     	db 'Hello World', 0x0

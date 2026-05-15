@@ -7,6 +7,8 @@
 	;; Call an external routine
 	
 	bits 16
+
+	section .text
 	
 	extern hello		; Tell the assembler that hello is not here
 	
