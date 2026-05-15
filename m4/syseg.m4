@@ -50,3 +50,9 @@ AC_DEFUN([SYSEG_CHECK_PROGRAM], [
 	fi
 	AC_SUBST([$2])
 ])
+
+AC_DEFUN([SYSEG_TOOL_PATH_FROM_VAR], [
+	eval "set -- \$$1"
+	eval "$2=\[$]1"
+	AC_SUBST([$2])
+])
