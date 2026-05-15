@@ -6,6 +6,8 @@
 #
 # This file is part of SYSeg (https://github.com/monacofj/syseg)
 
+#LD = $(SYSEG_LD)
+
 
 # Original Kernighan & Richie Hello World, as it appeared in 1978's book
 # "The C Programming Language". To build it with GCC, we need to disable
@@ -152,6 +154,17 @@ hello-09-floppy.bin : hello-09.asm
 hello-09-disk.bin : hello-09.asm
 	$(NASM) -f bin -DORG=0x7c5a $< -o $@
 
+# Using the linker
+
+%.o : %.asm
+	$(NASM) -f elf32 $< -o $@
+
+# Works for
+#
+# hello-10.bin
+
+%.bin : %a.o %b.o %.ld rt0a.o
+	$(SYSEG_LD) -melf_i386 -T $*.ld $*a.o $*b.o -o $@
 
 
 ##
@@ -169,6 +182,19 @@ extra-02.o : extra-02.asm
 
 extra-02.bin : extra-02.o
 	$(LD) -melf_i386 -T extra-02.ld $< -o $@
+
+extra-02a.o : extra-02a.asm
+	$(NASM) -f elf32 $< -o $@
+extra-02a.bin : extra-02a.o
+	$(SYSEG_LD) -melf_i386 -T extra-02a.ld $< -o $@
+
+
+extra-02b.o : extra-02a.asm
+	$(NASM) -f elf32 $< -o $@
+
+extra-02b.bin : extra-02b.o rt0a.o
+	$(SYSEG_LD) -melf_i386 -T extra-02b.ld $< -o $@
+
 
 
 #############

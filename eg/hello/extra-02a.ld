@@ -12,19 +12,15 @@ OUTPUT_FORMAT(binary)		       /* Choose output format: flat binary.  */
 SECTIONS
 {
 	. = 0x7c00;		       /* Advance current ofset to 0x700.     */
-	.code : {*} 		       /* Include all input sections in .code.*/
+	.code : SUBALIGN(1) {*}        /* Include all input sections in .code.*/
 	. = 0x7c00 + 510;	       /* Advance to 0x7c00 and fill the gap. */
 	.signature : { SHORT(0xaa55) } /* Add boot signature.                 */
 }
 
 /* Notes
 
-   Concerning SECTIONS, the wildcard *  mans 'all sections. In the particular
-   case that the output format is flat binary, the linker is smart enough to 
-   consider only the allocable sections: .text, .data, .bss and .rodata (as
-   there is no room for metadata anyway.
-
-   Including all sections in any order is not the best practice, but for this
-   example is suficient and keeps the code the simplest possible.
+   Here, since we have two sections, .text and .rodata, the linker is compelled
+   to memory-align them at multiple-of-16 positions. To avoid that, we use the
+   SUBALIGN() keyword.
 
  */
