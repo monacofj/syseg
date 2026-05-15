@@ -51,8 +51,31 @@ AC_DEFUN([SYSEG_CHECK_PROGRAM], [
 	AC_SUBST([$2])
 ])
 
-AC_DEFUN([SYSEG_TOOL_PATH_FROM_VAR], [
-	eval "set -- \$$1"
-	eval "$2=\[$]1"
-	AC_SUBST([$2])
+AC_DEFUN([SYSEG_CHECK_CC_TOOLS], [
+	dnl Keep the assembler and linker tied to the C compiler selected by
+	dnl Autoconf.  A separate AC_CHECK_TOOL/AC_PATH_PROG search could find
+	dnl another as(1) or ld(1) in PATH, which may not match a user-selected
+	dnl or cross C compiler.
+	eval "set -- $CC"
+	SYSEG_CC=[$]1
+	case $SYSEG_CC in
+		*/*) ;;
+		*) SYSEG_CC=`command -v "$SYSEG_CC"` ;;
+	esac
+
+	SYSEG_AS=`$CC -print-prog-name=as`
+	case $SYSEG_AS in
+		*/*) ;;
+		*) SYSEG_AS=`command -v "$SYSEG_AS"` ;;
+	esac
+
+	SYSEG_LD=`$CC -print-prog-name=ld`
+	case $SYSEG_LD in
+		*/*) ;;
+		*) SYSEG_LD=`command -v "$SYSEG_LD"` ;;
+	esac
+
+	AC_SUBST([SYSEG_CC])
+	AC_SUBST([SYSEG_AS])
+	AC_SUBST([SYSEG_LD])
 ])
