@@ -457,17 +457,25 @@ OVMF_VARS_LOCAL ?= ovmf-vars.fd # Local copy of OVMF variables
 MEM ?= 256M                  # Amount of memory to allocate for QEMU
 SMP ?= 2                     # Number of CPU cores to allocate for QEMU
 
-# Use this to boot an image in QEMU with BIOS legacy booting.
+# Boot with legacy BIOS.
+
+%.bin/bios : %.bin $(QEMU_32)
+	$(QEMU_32) \
+		-drive format=raw,file=$< -boot c -net none
+
+%-floppy.img/bios : %-floppy.img $(QEMU_32)
+	$(QEMU_32) \
+		-drive if=floppy,format=raw,file=$< -boot a -net none
+
+%-disk.img/bios : %-disk.img $(QEMU_32)
+	$(QEMU_32) \
+		-drive format=raw,file=$< -boot c -net none
 
 %.iso/bios : %.iso $(QEMU_32)
 	$(QEMU_32) \
 		-cdrom $< -boot d -net none
 
-%/bios : % $(QEMU_32)
-	$(QEMU_32) \
-		-drive format=raw,file=$< -boot c -net none
-
-# Use this to boot an image in QEMU with UEFI firmware (native or CSM-wrapped).
+# Boot with UEFI firmware.
 
 %.iso/uefi : %.iso $(OVMF_VARS_LOCAL) $(QEMU_64)
 	$(QEMU_64) \
@@ -479,7 +487,7 @@ SMP ?= 2                     # Number of CPU cores to allocate for QEMU
 		-m $(MEM) \
 		-vga std
 
-%/uefi : % $(OVMF_VARS_LOCAL) $(QEMU_64)
+%-disk.img/uefi : %-disk.img $(OVMF_VARS_LOCAL) $(QEMU_64)
 	$(QEMU_64) \
 		-drive if=pflash,format=raw,readonly=on,file=$(OVMF_CODE) \
 		-drive if=pflash,format=raw,file=$(OVMF_VARS_LOCAL) \
@@ -488,6 +496,50 @@ SMP ?= 2                     # Number of CPU cores to allocate for QEMU
 		-smp $(SMP) \
 		-m $(MEM) \
 		-vga std
+
+%-floppy.img/uefi : %-floppy.img $(OVMF_VARS_LOCAL) $(QEMU_64)
+	$(QEMU_64) \
+		-drive if=pflash,format=raw,readonly=on,file=$(OVMF_CODE) \
+		-drive if=pflash,format=raw,file=$(OVMF_VARS_LOCAL) \
+		-drive format=raw,file=$< \
+		-net none \
+		-smp $(SMP) \
+		-m $(MEM) \
+		-vga std
+
+
+# Boot a CSM-wrapped image with legacy BIOS or UEFI firmware.
+
+
+%-floppy-csm.img/bios : %-floppy-csm.img $(QEMU_32)
+	$(QEMU_32) \
+		-drive if=floppy,format=raw,file=$< -boot a -net none
+
+
+%-disk-csm.img/bios : %-disk-csm.img $(QEMU_32)
+	$(QEMU_32) \
+		-drive format=raw,file=$< -boot c -net none
+
+%-floppy-csm.img/uefi : %-floppy-csm.img $(OVMF_VARS_LOCAL) $(QEMU_64)
+	$(QEMU_64) \
+		-drive if=pflash,format=raw,readonly=on,file=$(OVMF_CODE) \
+		-drive if=pflash,format=raw,file=$(OVMF_VARS_LOCAL) \
+		-drive format=raw,file=$< \
+		-net none \
+		-smp $(SMP) \
+		-m $(MEM) \
+		-vga std
+
+%-disk-csm.img/uefi : %-disk-csm.img $(OVMF_VARS_LOCAL) $(QEMU_64)
+	$(QEMU_64) \
+		-drive if=pflash,format=raw,readonly=on,file=$(OVMF_CODE) \
+		-drive if=pflash,format=raw,file=$(OVMF_VARS_LOCAL) \
+		-drive format=raw,file=$< \
+		-net none \
+		-smp $(SMP) \
+		-m $(MEM) \
+		-vga std
+
 
 $(OVMF_VARS_LOCAL): $(OVMF_VARS_TEMPLATE)
 	cp $< $@
