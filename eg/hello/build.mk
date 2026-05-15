@@ -163,7 +163,7 @@ hello-09-disk.bin : hello-09.asm
 #
 # hello-10.bin
 
-%.bin : %a.o %b.o %.ld rt0a.o
+%.bin : %a.o %b.o %.ld #rt0a.o
 	$(SYSEG_LD) -melf_i386 --defsym ORG=0x7c00 -T $*.ld $*a.o $*b.o -o $@
 
 %-floppy.bin : %a.o %b.o %.ld rt0a.o
@@ -171,6 +171,13 @@ hello-09-disk.bin : hello-09.asm
 
 %-disk.bin : %a.o %b.o %.ld rt0a.o
 	$(SYSEG_LD) -melf_i386 --defsym ORG=0x7c5a -T $*.ld $*a.o $*b.o -o $@
+
+%-disk.bin : %a.o %b.o %.ld rt0b.o
+	$(SYSEG_LD) -melf_i386 --defsym ORG=0x7c5a -T $*.ld $*a.o $*b.o -o $@
+
+hello-10.bin : rt0a.o
+hello-11.bin : rt0b.o
+
 
 ##
 ## Auxiliary examples
