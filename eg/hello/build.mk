@@ -1,5 +1,3 @@
-
-
 # SPDX-FileCopyrightText: 2021 Monaco F. J. <https://github.com/monacofj>
 #
 # SPDX-License-Identifier: GPL-3.0-or-later
@@ -163,21 +161,41 @@ hello-09-disk.bin : hello-09.asm
 #
 # hello-10.bin
 
-%.bin : %a.o %b.o %.ld #rt0a.o
-	$(SYSEG_LD) -melf_i386 --defsym ORG=0x7c00 -T $*.ld $*a.o $*b.o -o $@
+# AB_RULE = hello-10.bin hello-11.bin
 
-%-floppy.bin : %a.o %b.o %.ld rt0a.o
-	$(SYSEG_LD) -melf_i386 --defsym ORG=0x7c3e -T $*.ld $*a.o $*b.o -o $@
+# $(AB_RULE) : %.bin : %a.o %b.o %.ld #rt0a.o
+# 	$(SYSEG_LD) -melf_i386 --defsym ORG=0x7c00 -T $*.ld $*a.o $*b.o -o $@
 
-%-disk.bin : %a.o %b.o %.ld rt0a.o
-	$(SYSEG_LD) -melf_i386 --defsym ORG=0x7c5a -T $*.ld $*a.o $*b.o -o $@
+# $(AB_RULE:%.bin=%-floppy.bin) : %-floppy.bin : %a.o %b.o %.ld #rt0a.o
+# 	$(SYSEG_LD) -melf_i386 --defsym ORG=0x7c3e -T $*.ld $*a.o $*b.o -o $@
 
-%-disk.bin : %a.o %b.o %.ld rt0b.o
-	$(SYSEG_LD) -melf_i386 --defsym ORG=0x7c5a -T $*.ld $*a.o $*b.o -o $@
+# %-disk.bin : %a.o %b.o %.ld #rt0a.o
+# 	$(SYSEG_LD) -melf_i386 --defsym ORG=0x7c5a -T $*.ld $*a.o $*b.o -o $@
 
-hello-10.bin : rt0a.o
-hello-11.bin : rt0b.o
+# # hello-10.bin : rt0a.o
+# # hello-11-floppy.bin : rt0b.o
 
+# Call external library.
+
+hello-10.bin : hello-10a.o hello-10b.o hello-10.ld rt0a.o
+	$(SYSEG_LD) -melf_i386 --defsym ORG=0x7c00 -T hello-10.ld hello-10a.o hello-10b.o -o $@
+
+hello-10-floppy.bin : hello-10a.o hello-10b.o hello-10.ld rt0a.o
+	$(SYSEG_LD) -melf_i386 --defsym ORG=0x7c3e -T hello-10.ld hello-10a.o hello-10b.o -o $@
+
+hello-10-disk.bin : hello-10a.o hello-10b.o hello-10.ld rt0a.o
+	$(SYSEG_LD) -melf_i386 --defsym ORG=0x7c5a -T hello-10.ld hello-10a.o hello-10b.o -o $@
+
+# Better implementation of hello-10
+
+hello-11.bin : hello-11a.o hello-11b.o hello-11.ld rt0b.o
+	$(SYSEG_LD) -melf_i386 --defsym ORG=0x7c00 -T hello-11.ld hello-11a.o hello-11b.o -o $@
+
+hello-11-floppy.bin : hello-11a.o hello-11b.o hello-11.ld rt0b.o
+	$(SYSEG_LD) -melf_i386 --defsym ORG=0x7c3e -T hello-11.ld hello-11a.o hello-11b.o -o $@
+
+hello-11-disk.bin : hello-11a.o hello-11b.o hello-11.ld rt0b.o
+	$(SYSEG_LD) -melf_i386 --defsym ORG=0x7c5a -T hello-11.ld hello-11a.o hello-11b.o -o $@
 
 ##
 ## Auxiliary examples
