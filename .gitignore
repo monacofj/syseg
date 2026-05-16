@@ -73,3 +73,7 @@ Makefile
 .codex
 .newfile
 .prepfile/*
+
+*.o
+*.bin
+*.img
