@@ -22,7 +22,7 @@ SECTIONS
 	. = 0x7c00 + 510;	       /* Advance to 0x7c00 and fill the gap. */
 	.signature : { SHORT(0xaa55) } /* Add boot signature.                 */
 
-	STACK_BASE = . ;	       /* Define symbol STACK_BASE.            */
+	STACK_BASE = 0x7c00 ;	       /* Define symbol STACK_BASE.            */
 
 }
 STARTUP(rt0b.o)
