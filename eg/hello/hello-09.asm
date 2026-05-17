@@ -11,7 +11,7 @@
 
 	org ORG
 	
-	%include "rt0.asm"
+	%include "hello-09-rt0.asm"
 
 	call hello
 
@@ -38,4 +38,3 @@ msg:
         
         times 510 - ($-$$) db 0     
         dw 0xaa55     
-

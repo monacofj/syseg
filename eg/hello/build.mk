@@ -12,25 +12,29 @@
 # a few ISO-C-era diagnostics:
 #
 #   -Wno-implicit-int: accept the old-style `main()` declaration without an
-#     explicit return type;
+#    explicit return type;
 #   -Wno-implicit-function-declaration: accept the call to `printf()` without
-#     a prototype in scope;
+#    a prototype in scope;
 #   -Wno-builtin-declaration-mismatch: avoid complaining that the implicit
-#     `printf()` declaration disagrees with GCC's built-in declaration.
+#    `printf()` declaration disagrees with GCC's built-in declaration.
 
 hello-00 : hello-00.c
-	$(CC) -Wno-implicit-int -Wno-implicit-function-declaration -Wno-builtin-declaration-mismatch $< -o $@
+	$(SYSEG_CC) -Wno-implicit-int -Wno-implicit-function-declaration -Wno-builtin-declaration-mismatch $< -o $@
 
 # The standard, C-99 style "Hello World" program.
 
 hello-01 : hello-01.c
-	$(CC) $< -o $@
+	$(SYSEG_CC) $< -o $@
 
-# A minimal machine-code implementation as an MBR boot sector intended to be
+# A minimal machine-code implementation as boot sector payload intended to be
 # loaded by the BIOS in legacy mode and executed as 8086 code in real mode.
+#
+# The program hex2bin, found in directory tools, simply converts the 
+# hexadecimal representation of the machine code into a binary file. 
 
 hello-02.bin : hello-02.hex
 	$(TOOLS_PATH)/hex2bin < $< > $@
+
 
 # Variation of hello-02.bin for BIOSes that may overwrite BPB fields in the
 # loaded boot sector, assuming a FAT filesystem. The trick is to leave room
@@ -43,14 +47,14 @@ hello-02.bin : hello-02.hex
 hello-02a.bin : hello-02a.hex
 	$(TOOLS_PATH)/hex2bin < $< > $@
 
-# An alternative to placate presumptuous BPB-overwritting BIOSes: use a true
+# An alternative to placate presumptuous BPB-overwriting BIOSes: use a true
 # FAT12 media. First, create a 1.44M floppy disk image and format it. The
 # formatting program will prepare the boot sector (sector 0) with a complete
 # FAT12 header and the boot signature. The FAT header will include the
-# leading instruction to bypass the BPB and lands at 0x3e. Usually, the
-# program will include also a small bootable program that just outputs
-# a message telling that the disk has no system to boot. We then overwrite
-# this program with our own. 
+# leading jump instruction to bypass the BPB and lands at 0x3e. Usually, the
+# formatting program will include also a small bootable program that just 
+# outputs a message telling that the disk has no system to boot. We  
+# overwrite this program with our own. 
 #
 # Try
 #
@@ -72,9 +76,23 @@ hello-02a.bin : hello-02a.hex
 #
 # As a last resort in the event your UEFI has trouble booting via USB-FDD,
 # proceed as above but replacing the image name hello-02-floppy-csm.img 
-# with hello-02-disk-csm.img
+# with hello-02-disk-csm.img. This will build a FAT32 disk image, which may be # more compatible with modern UEFI firmware. The boot program is again stored
+# as the VBR payload of the single FAT32 partition. The MBR bootstrap code
+# will also perform some register initialization that can sanitize the
+# environment for certain BIOSes, before loading the boot program.
+#
+# This expedient can be used with any of the remaining example in this 
+# directory. The only requirement is that the boot program must be small enough # to fit in the payload area of the VBR sector of the image: 448 bytes for a 
+# FAT12 floppy (512-62-2), 420 bytes for a FAT32 disk (512-90-2).
 
 # The same program as hello-02.hex but in NASM assembly.
+#
+# The recipe to build a raw binary file from an ASM source using NASK is
+#
+#  nasm -f bin foo.asm -o foo.bin
+#
+# The same recipe is used for all analogous examples that follow, by means of
+# the pattern rules defined at the end of this file.
 
 hello-03.bin : hello-03.asm
 	$(NASM) -f bin $< -o $@
@@ -89,113 +107,47 @@ hello-04.bin : hello-04.asm
 hello-05.bin : hello-05.asm
 	$(NASM) -f bin $< -o $@
 
-hello-05-floppy.bin : hello-05-floppy.asm
-	$(NASM) -f bin $< -o $@
-
-hello-05-disk.bin : hello-05-disk.asm
-	$(NASM) -f bin $< -o $@
-
-# The propper way to fix hello-04.asm with 'org' directive
+# The proper way to fix hello-04.asm with 'org' directive
 
 hello-06.bin : hello-06.asm
 	$(NASM) -f bin $< -o $@
 
-hello-06-floppy.bin : hello-06-floppy.asm
-	$(NASM) -f bin $< -o $@
 
-hello-06-disk.bin : hello-06-disk.asm
-	$(NASM) -f bin $< -o $@
-
-
-# Canonicalization of segement registers
-
+# Canonicalization of segment registers
 
 hello-07.bin : hello-07.asm	
 	$(NASM) -f bin $< -DORG=0x7c00 -o $@
 
-hello-07-floppy.bin : hello-07.asm	
-	$(NASM) -f bin $< -DORG=0x7c3e -o $@
-
-hello-07-disk.bin : hello-07.asm	
-	$(NASM) -f bin $< -DORG=0x7c5a -o $@
 
 # Bonus: using VRAN instead of BIOS int 0x10
 
 hello-07vram.bin : hello-07vram.asm
 	$(NASM) -f bin $< -DORG=0x7c00 -o $@
 
-hello-07vram-floppy.bin : hello-07vram.asm
-	$(NASM) -f bin $< -DORG=0x7c3e -o $@
-
-hello-07vram-disk.bin : hello-07vram.asm
-	$(NASM) -f bin $< -DORG=0x7c5a -o $@
 
 # Like hello-07.asm but including rt0.asm.
 
 hello-08.bin : hello-08.asm
 	$(NASM) -f bin -DORG=0x7c00 $< -o $@
 
-hello-08-floppy.bin : hello-08.asm
-	$(NASM) -f bin -DORG=0x7c3e $< -o $@
-
-hello-08-disk.bin : hello-08.asm
-	$(NASM) -f bin -DORG=0x7c5a $< -o $@
 
 # Callable subroutine
 
 hello-09.bin : hello-09.asm
 	$(NASM) -f bin -DORG=0x7c00 $< -o $@
 
-hello-09-floppy.bin : hello-09.asm
-	$(NASM) -f bin -DORG=0x7c3e $< -o $@
-
-hello-09-disk.bin : hello-09.asm
-	$(NASM) -f bin -DORG=0x7c5a $< -o $@
-
-# Using the linker
-
-%.o : %.asm
-	$(NASM) -f elf32 $< -o $@
-
-# Works for
-#
-# hello-10.bin
-
-# AB_RULE = hello-10.bin hello-11.bin
-
-# $(AB_RULE) : %.bin : %a.o %b.o %.ld #rt0a.o
-# 	$(SYSEG_LD) -melf_i386 --defsym ORG=0x7c00 -T $*.ld $*a.o $*b.o -o $@
-
-# $(AB_RULE:%.bin=%-floppy.bin) : %-floppy.bin : %a.o %b.o %.ld #rt0a.o
-# 	$(SYSEG_LD) -melf_i386 --defsym ORG=0x7c3e -T $*.ld $*a.o $*b.o -o $@
-
-# %-disk.bin : %a.o %b.o %.ld #rt0a.o
-# 	$(SYSEG_LD) -melf_i386 --defsym ORG=0x7c5a -T $*.ld $*a.o $*b.o -o $@
-
-# # hello-10.bin : rt0a.o
-# # hello-11-floppy.bin : rt0b.o
 
 # Call external library.
 
-hello-10.bin : hello-10a.o hello-10b.o hello-10.ld rt0a.o
+
+hello-10.bin : hello-10a.o hello-10b.o hello-10-rt0.o hello-10.ld
 	$(SYSEG_LD) -melf_i386 --defsym ORG=0x7c00 -T hello-10.ld hello-10a.o hello-10b.o -o $@
 
-hello-10-floppy.bin : hello-10a.o hello-10b.o hello-10.ld rt0a.o
-	$(SYSEG_LD) -melf_i386 --defsym ORG=0x7c3e -T hello-10.ld hello-10a.o hello-10b.o -o $@
+# Better implementation of hello-10.bin.
 
-hello-10-disk.bin : hello-10a.o hello-10b.o hello-10.ld rt0a.o
-	$(SYSEG_LD) -melf_i386 --defsym ORG=0x7c5a -T hello-10.ld hello-10a.o hello-10b.o -o $@
 
-# Better implementation of hello-10
-
-hello-11.bin : hello-11a.o hello-11b.o hello-11.ld rt0b.o
+hello-11.bin : hello-11a.o hello-11b.o hello-11-rt0.o hello-11.ld
 	$(SYSEG_LD) -melf_i386 --defsym ORG=0x7c00 -T hello-11.ld hello-11a.o hello-11b.o -o $@
-
-hello-11-floppy.bin : hello-11a.o hello-11b.o hello-11.ld rt0b.o
-	$(SYSEG_LD) -melf_i386 --defsym ORG=0x7c3e -T hello-11.ld hello-11a.o hello-11b.o -o $@
-
-hello-11-disk.bin : hello-11a.o hello-11b.o hello-11.ld rt0b.o
-	$(SYSEG_LD) -melf_i386 --defsym ORG=0x7c5a -T hello-11.ld hello-11a.o hello-11b.o -o $@
 
 ##
 ## Auxiliary examples
@@ -207,29 +159,17 @@ extra-01a.bin : extra-01a.asm
 extra-01b.bin : extra-01b.asm
 	$(NASM) -f bin $< -o $@
 
-extra-02.o : extra-02.asm
-	$(NASM) -f elf32 $< -o $@
-
-extra-02.bin : extra-02.o
+extra-02.bin : extra-02.o extra-02.ld
 	$(LD) -melf_i386 -T extra-02.ld $< -o $@
 
-extra-02a.o : extra-02a.asm
-	$(NASM) -f elf32 $< -o $@
-extra-02a.bin : extra-02a.o
+extra-02a.bin : extra-02a.o extra-02a.ld
 	$(SYSEG_LD) -melf_i386 -T extra-02a.ld $< -o $@
 
-
-extra-02b.o : extra-02a.asm
-	$(NASM) -f elf32 $< -o $@
-
-extra-02b.bin : extra-02b.o rt0a.o
+extra-02b.bin : extra-02b.o extra-02b-rt0.o extra-02b.ld
 	$(SYSEG_LD) -melf_i386 -T extra-02b.ld $< -o $@
 
 
-
-#############
-hello.o : hello-bios.S
-	as --32 $< -o $@
+# Temporary examples for testing the build system. 
 
 hello-bios.bin : hello-bios.o
 	ld -melf_i386 -T bin.ld $< -o $@
@@ -240,20 +180,72 @@ hello-uefi.o : hello-uefi.S
 hello-uefi.efi : hello-uefi.o
 	ld -m i386pep -shared -e efi_main --subsystem 10 $< -o $@	
 
+##
+## These are pattern rules to automate the build of the examples. 
+##
+
+
+# Pattern rules to build binary files from hex or NASM assembly source.
+# The ORG variable is set to match raw, floppy and disk images.
+
+%.bin : %.asm
+	$(NASM) -f bin -DORG=$(ORG) $< -o $@
+
+%.bin : %.hex
+	$(TOOLS_PATH)/hex2bin < $< > $@
+
+# Pattern rules to build object files.
+
+%.o : %.asm
+	$(NASM) -f elf32 $< -o $@
+
 %.o : %.S
-	as --32 $< -o $@
+	$(AS) --32 $< -o $@
 
 %.o : %.c
 	$(CC) -m16 -Og $(LEAN_ASM) -c $< -o $@
 
-%-floppy.bin : %.bin
-	cp $< $@
+# Pattern rule to link objects a binary file.
 
-%-disk.bin : %.bin
-	cp $< $@
+%.bin : %.o %-rt0.o %.ld
+	$(SYSEG_LD) -melf_i386 --defsym ORG=$(ORG) -T $*.ld $*.o -o $@
 
-%.bin : %.o
-	ld -melf_i386 -T bin.ld $< -o $@
+%.bin : %a.o %b.o %-rt0.o %.ld
+	$(SYSEG_LD) -melf_i386 --defsym ORG=$(ORG) -T $*.ld $*a.o $*b.o -o $@
+	
+##
+## These rules are used by bintools to build floppy/disk variants.
+##
+
+%.bin : ORG:=0x7c00
+%-floppy.bin : ORG:=0x7c3e
+%-disk.bin : ORG:=0x7c5a
+
+
+# Automatic variants from linked families.
+
+
+%-floppy.bin : %a.o %b.o %-rt0.o %.ld
+	$(SYSEG_LD) -melf_i386 --defsym ORG=$(ORG) -T $*.ld $*a.o $*b.o -o $@
+
+%-disk.bin : %a.o %b.o %-rt0.o %.ld
+	$(SYSEG_LD) -melf_i386 --defsym ORG=$(ORG) -T $*.ld $*a.o $*b.o -o $@
+
+# Automatic variants from plain assembly source.
+
+%-floppy.bin : %.asm
+	$(NASM) -f bin -DORG=$(ORG) $< -o $@
+
+%-disk.bin : %.asm
+	$(NASM) -f bin -DORG=$(ORG) $< -o $@
+
+# Automatic floppy/disk variants from hexadecimal source.
+%-floppy.bin : %.hex
+	$(TOOLS_PATH)/hex2bin < $< > $@
+
+%-disk.bin : %.hex
+	$(TOOLS_PATH)/hex2bin < $< > $@
+
 
 
 .PHONY: manual-clean

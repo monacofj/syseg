@@ -8,7 +8,7 @@
 	
 	org 0x7c00
 
-	%include "rt0.asm"
+	%include "extra-01a-rt0.asm"
 
 	
         call hello

@@ -11,7 +11,7 @@
 
 	section .text
 	
-	%include "rt0.asm"
+	%include "extra-02a-rt0.asm"
 	
         mov ah, 0xe                 
         mov si, 0x00                
@@ -32,4 +32,3 @@ halt:
 msg:                                
         db 'Hello World', 0x0
         
-

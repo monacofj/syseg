@@ -16,7 +16,7 @@ SECTIONS
 	. = 0x7c00 + 510;	       /* Advance to 0x7c00 and fill the gap. */
 	.signature : { SHORT(0xaa55) } /* Add boot signature.                 */
 }
-STARTUP(rt0a.o)
+STARTUP(hello-10-rt0.o)
 
 /* Notes.
 

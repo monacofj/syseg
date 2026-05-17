@@ -12,7 +12,7 @@
 
 	org ORG
 	
-	%include "rt0.asm"
+	%include "hello-08-rt0.asm"
 	
         mov ah, 0xe                 
         mov si, 0x00                
@@ -33,4 +33,3 @@ msg:
         
         times 510 - ($-$$) db 0     
         dw 0xaa55     
-

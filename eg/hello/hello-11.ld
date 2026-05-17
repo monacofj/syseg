@@ -14,7 +14,7 @@ SECTIONS
 	. = ORG;		       /* Advance current ofset to 0x700.     */
 	.code . : SUBALIGN(1)
 	{
-            rt0b.o (.text)
+            hello-11-rt0.o (.text)
 	    hello-11a.o(.text)
 	    hello-11b.o(.text)
 	    hello-11b.o(.rodata)
@@ -25,7 +25,7 @@ SECTIONS
 	STACK_BASE = 0x7c00 ;	       /* Define symbol STACK_BASE.            */
 
 }
-STARTUP(rt0b.o)
+STARTUP(hello-11-rt0.o)
 
 /* Notes.
 
