@@ -15,12 +15,15 @@ SECTIONS
 	.code . : SUBALIGN(1) {*}      /* Include all input sections in .code.*/
 	. = 0x7c00 + 510;	       /* Advance to 0x7c00 and fill the gap. */
 	.signature : { SHORT(0xaa55) } /* Add boot signature.                 */
+
+	STACK_BASE = 0x7c00;	       /* Define the symbol STACK_BASE.       */
+
 }
 STARTUP(hello-10-rt0.o)
 
 /* Notes.
 
-   Here we have two noteworthy observations.
+   1) Here we have two noteworthy observations.
 
    First, we use
 
@@ -30,7 +33,7 @@ STARTUP(hello-10-rt0.o)
    nasm: to reuse the same code for binary blobs, floppy and disk images. In
    the present case, we use --defsym ORG=0x7c00 or the corresponding values.
 
-   Second, the SUBALIGN() keyword controls the alignment of the input sections
+   2) Te SUBALIGN() keyword controls the alignment of the input sections
    within the outputsection. It however does not ensure that the start of the
    outputsection itself is not default-aligned. For the .bin case, 0x7c00 is
    already 16-bit-aligned, so, we're good. But for 0x7c3e, the linker wants
@@ -40,5 +43,9 @@ STARTUP(hello-10-rt0.o)
        .code . : SUBALIGN(1)
 
    recalling that . is ORG here.
+
+   3) We define the symbol STACK_BASE, with the value 0x7c00. Remember,
+   STACK_BASE is not a variable, it's just a name for an address. We then use
+   the symbol in the runtime initializer.
 
 */

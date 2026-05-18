@@ -138,15 +138,17 @@ hello-09.bin : hello-09.asm
 
 # Call external library.
 
+hello-10a.o hello-10b.o hello-10-rt0.o: %.o : %.asm
+	$(NASM) -f elf32 $< -o $@
 
 hello-10.bin : hello-10a.o hello-10b.o hello-10-rt0.o hello-10.ld
 	$(SYSEG_LD) -melf_i386 --defsym ORG=0x7c00 -T hello-10.ld hello-10a.o hello-10b.o -o $@
 
-# Better implementation of hello-10.bin.
+# # Better implementation of hello-10.bin.
 
 
-hello-11.bin : hello-11a.o hello-11b.o hello-11-rt0.o hello-11.ld
-	$(SYSEG_LD) -melf_i386 --defsym ORG=0x7c00 -T hello-11.ld hello-11a.o hello-11b.o -o $@
+# hello-11.bin : hello-11a.o hello-11b.o hello-11-rt0.o hello-11.ld
+# 	$(SYSEG_LD) -melf_i386 --defsym ORG=0x7c00 -T hello-11.ld hello-11a.o hello-11b.o -o $@
 
 ##
 ## Auxiliary examples
@@ -200,8 +202,8 @@ hello-uefi.efi : hello-uefi.o
 
 # Pattern rules to build object files.
 
-%.o : %.asm
-	$(NASM) -f elf32 $< -o $@
+# %.o : %.asm
+# 	$(NASM) -f elf32 $< -o $@
 
 %.o : %.S
 	$(AS) --32 $< -o $@

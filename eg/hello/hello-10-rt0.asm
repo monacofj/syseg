@@ -11,6 +11,7 @@
 	bits 16
 	
 	section .text
+	extern  STACK_BASE  ; This symbol is defined in the linker script.
 	
 	;; Canonicalization of the real-mode execution state.
 	
@@ -18,8 +19,8 @@
         mov ds, ax          ; Data segemnts as 0000
         mov es, ax
         cli		    
-        mov ss, ax          ; Stack starts at 0000:7c00
-        mov sp, 0x7c00
+        mov ss, ax          ; Stack starts at 0000:STACK_BASE
+        mov sp, STACK_BASE  
         sti
 	jmp 0x0000:start    ; CS:IP as 0000:start
 start:                     
