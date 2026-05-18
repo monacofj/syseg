@@ -12,13 +12,7 @@ OUTPUT_FORMAT(binary)		       /* Choose output format: flat binary.  */
 SECTIONS
 {
 	. = ORG;		       /* Advance current ofset to 0x700.     */
-	.code . : SUBALIGN(1)
-	{
-            extra-04-rt0.o (.text)
-	    extra-04a.o(.text)
-	    extra-04b.o(.text)
-	    extra-04b.o(.rodata)
-	}
+	.code . : SUBALIGN(1) {*}
 	. = 0x7c00 + 510;	       /* Advance to 0x7c00 and fill the gap. */
 	.signature : { SHORT(0xaa55) } /* Add boot signature.                 */
 
@@ -27,14 +21,3 @@ SECTIONS
 }
 STARTUP(extra-04-rt0.o)
 
-/* Notes.
-
-   This linker scripts ensures that the input objects are processed in the
-   correct order, independently from the order in which they appear in the
-   command line.
-
-   Alse we define the symbol STACK_BASE, with the value 0x7c00. Remember,
-   STACK_BASE is not a variable, it's just a name for an address. We then use
-   the symbol in rt0b.asm.
-
-*/
