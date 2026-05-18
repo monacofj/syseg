@@ -6,7 +6,7 @@
 
 	bits 16  
 
-	org 0x7c00
+	org ORG
 	
         mov ah, 0xe                 
         mov si, 0x00                

@@ -107,10 +107,22 @@ hello-04.bin : hello-04.asm
 hello-05.bin : hello-05.asm
 	$(NASM) -f bin $< -o $@
 
+hello-05-floppy.bin : hello-05-floppy.asm
+	$(NASM) -f bin $< -o $@
+
+hello-05-disk.bin : hello-05-disk.asm
+	$(NASM) -f bin $< -o $@
+
 # The proper way to fix hello-04.asm with 'org' directive
 
 hello-06.bin : hello-06.asm
-	$(NASM) -f bin $< -o $@
+	$(NASM) -f bin $< -DORG=0x7c00 -o $@
+
+# hello-06-floppy.bin : hello-06-floppy.asm
+# 	$(NASM) -f bin $< -o $@
+
+# hello-06-disk.bin : hello-06-disk.asm
+# 	$(NASM) -f bin $< -o $@
 
 
 # Canonicalization of segment registers
@@ -259,3 +271,13 @@ hello-uefi.efi : hello-uefi.o
 manual-clean:
 	rm -f *.o *.bin *.img *.efi *.fd *.vbr *.csm *.iso
 	rm -f hello-00 hello-01
+
+
+bins = 02 03 04 05 06 07 08 09 10
+imgs =       04 05 06 07 08 09 10
+
+test:
+	@make clean
+	@make $(bins:%=hello-%.bin) $(imgs:%=hello-%-floppy.img) $(imgs:%=hello-%-disk.img)
+	@echo "--------------------------------------------------------"
+	@echo "All images built"

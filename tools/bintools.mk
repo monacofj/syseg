@@ -261,8 +261,9 @@ PART1_LAST_SECTOR := $(shell echo $$(($(DISK_SECTORS) - 1)))
 FAT12_VBR_PAYLOAD_SIZE := $(shell echo $$(($(SECTOR_SIZE) - 62 - 2))) 
 FAT32_VBR_PAYLOAD_SIZE := $(shell echo $$(($(SECTOR_SIZE) - 90 - 2))) 
 
-# This is an MBR bootstrap code for a FAT32 image, which loads the VBR code 
-# (e.g. a bootloader) from the active partition and transferring control to it.
+# This is an MBR bootstrap code for floppy/disk images, which loads the VBR 
+# code (e.g. a bootloader) from the active partition and transferring 
+# control to it. They are used by recipes that build disk/floppy images.
 
 mbr-fat32.o : $(TOOLS_PATH)/mbr-fat32.S $(SYSEG_AS)
 	$(SYSEG_AS) --32 $< -o $@
@@ -271,31 +272,11 @@ mbr-fat32.bin : mbr-fat32.o $(TOOLS_PATH)/mbr-fat32.ld $(SYSEG_LD)
 	$(SYSEG_LD) -melf_i386 -T $(TOOLS_PATH)/mbr-fat32.ld $< -o $@
 
 
-# Build the object file as a payload for the VBR of a FAT partition.
-
-%-fat32.vbr : %.o $(TOOLS_PATH)/vbr-fat32.ld $(SYSEG_LD)
-	$(SYSEG_LD) -melf_i386 -T $(TOOLS_PATH)/vbr-fat32.ld $< -o $@
-
-%-fat12.vbr : %.o $(TOOLS_PATH)/vbr-fat12.ld $(SYSEG_LD)
-	$(SYSEG_LD) -melf_i386 -T $(TOOLS_PATH)/vbr-fat12.ld $< -o $@
-	
-
 #
 # Prepare images for legacy BIOS booting..
 #
 
-# Create a FAT12 floppy disk image if we can build the payload  as an
-# ELF object file (i.e. there is a rule to build %.o from the source file).  
-
-%-floppy.img : %-fat12.vbr $(FAT12_TOOLS)
-	rm -f $@
-	dd if=/dev/zero of=$@ bs=$(SECTOR_SIZE) count=$(FLOPPY_SECTORS)
-	$(MKFS_FAT) -F12 $@
-	dd if=$< of=$@ bs=1 seek=62 conv=notrunc 
-
-# Create a FAT12 floppy disk from a binary file, if we can only build 
-# the payload as a flat binary (i.e. there is a rule to build %-floppy.bin
-# from the source file, but there is no rule to build %.o).
+# Create a FAT12 floppy disk from a binary payload.
 
 %-floppy.img : %-floppy.bin $(FAT12_TOOLS)
 	rm -f $@
@@ -303,25 +284,7 @@ mbr-fat32.bin : mbr-fat32.o $(TOOLS_PATH)/mbr-fat32.ld $(SYSEG_LD)
 	$(MKFS_FAT) -F12 $@
 	dd if=$< of=$@ bs=1 seek=62 conv=notrunc count=$(FAT12_VBR_PAYLOAD_SIZE)
 
-# Create a FAT32 disk image if we can build the payload  as an
-# ELF object file (i.e. there is a rule to build %.o from the source file).
-# The payload is stored in the VBR of the unique FAT32 partition. 
-
-%-disk.img : %-fat32.vbr mbr-fat32.bin $(FAT32_TOOLS)
-	rm -f $@
-	dd if=/dev/zero of=$@ bs=$(SECTOR_SIZE) count=$(DISK_SECTORS)
-	$(PARTED) -s $@ mklabel msdos
-	$(PARTED) -s $@ unit s mkpart primary fat32 $(PART1_START) $(PART1_LAST_SECTOR)
-	$(PARTED) -s $@ set 1 boot on
-	$(PARTED) -s $@ set 1 esp on
-	$(MKFS_FAT) -F32 --offset $(PART1_START) $@
-	dd if=mbr-fat32.bin of=$@ bs=446 count=1 conv=notrunc
-	dd if=$< of=$@ bs=1 seek=$$(($(PART1_OFFSET) + 90)) conv=notrunc
-
-
-# Create a FAT32 floppy disk from a binary file, if we can only build 
-# the payload as a flat binary (i.e. there is a rule to build %-disk.bin from
-# the source file, but there is no rule to build %.o).
+# Create a FAT32 disk image from a binary payload.
 # The payload is stored in the VBR of the unique FAT32 partition. 
 
 %-disk.img : %-disk.bin mbr-fat32.bin $(FAT32_TOOLS)
@@ -360,8 +323,7 @@ mbr-fat32.bin : mbr-fat32.o $(TOOLS_PATH)/mbr-fat32.ld $(SYSEG_LD)
 # Prepare images for legacy BIOS booting from a UEFI via CSM wrapper.  
 #
 
-# Create a FAT12 floppy disk image if we can build the payload  as an
-# ELF object file (i.e. there is a rule to build %.o from the source file). 
+# Create a FAT12 floppy disk image from a binary payload.
 # A CSM wrapper is added to the image to allow legacy BIOS booting from a UEFI.
 
 %-floppy-csm.img : %-floppy.bin $(CSM_64) $(CSM_32) $(CSM_FLOPPY_TOOLS)
@@ -374,44 +336,7 @@ mbr-fat32.bin : mbr-fat32.o $(TOOLS_PATH)/mbr-fat32.ld $(SYSEG_LD)
 	$(MCOPY) -i $@@@0 $(CSM_64) ::/EFI/BOOT/BOOTX64.EFI
 	$(MCOPY) -i $@@@0 $(CSM_32) ::/EFI/BOOT/BOOTIA32.EFI
 
-# Create a FAT12 floppy disk from a binary file, if we can only build 
-# the payload as a flat binary (i.e. there is a rule to build %-floppy.bin
-# from the source file, but there is no rule to build %.o).
-# A CSM wrapper is added to the image to allow legacy BIOS booting from a UEFI.
-
-%-floppy-csm.img : %-fat12.vbr $(CSM_FLOPPY_TOOLS)
-	rm -f $@
-	dd if=/dev/zero of=$@ bs=$(SECTOR_SIZE) count=$(FLOPPY_SECTORS)
-	$(MKFS_FAT) -F12 $@
-	dd if=$< of=$@ bs=1 seek=62 conv=notrunc 
-	$(MMD) -i $@@@0 ::/EFI
-	$(MMD) -i $@@@0 ::/EFI/BOOT
-	$(MCOPY) -i $@@@0 $(CSM_64) ::/EFI/BOOT/BOOTX64.EFI
-	$(MCOPY) -i $@@@0 $(CSM_32) ::/EFI/BOOT/BOOTIA32.EFI
-
-# Create a FAT32 disk image if we can build the payload  as an
-# ELF object file (i.e. there is a rule to build %.o from the source file).
-# The payload is stored in the VBR of the unique FAT32 partition. 
-# A CSM wrapper is added to the image to allow legacy BIOS booting from a UEFI.
-
-%-disk-csm.img : %-fat32.vbr mbr-fat32.bin $(CSM_64) $(CSM_32) $(CSM_DISK_TOOLS)
-	rm -f $@
-	dd if=/dev/zero of=$@ bs=$(SECTOR_SIZE) count=$(DISK_SECTORS)
-	$(PARTED) -s $@ mklabel msdos
-	$(PARTED) -s $@ unit s mkpart primary fat32 $(PART1_START) $(PART1_LAST_SECTOR)
-	$(PARTED) -s $@ set 1 boot on
-	$(PARTED) -s $@ set 1 esp on
-	$(MKFS_FAT) -F32 --offset $(PART1_START) $@
-	dd if=mbr-fat32.bin of=$@ bs=446 count=1 conv=notrunc
-	dd if=$< of=$@ bs=1 seek=$$(($(PART1_OFFSET) + 90)) conv=notrunc
-	$(MMD) -i $@@@$(PART1_OFFSET) ::/EFI
-	$(MMD) -i $@@@$(PART1_OFFSET) ::/EFI/BOOT
-	$(MCOPY) -i $@@@$(PART1_OFFSET) $(CSM_64) ::/EFI/BOOT/BOOTX64.EFI
-	$(MCOPY) -i $@@@$(PART1_OFFSET) $(CSM_32) ::/EFI/BOOT/BOOTIA32.EFI
-
-# Create a FAT32 floppy disk from a binary file, if we can only build 
-# the payload as a flat binary (i.e. there is a rule to build %-disk.bin from
-# the source file, but there is no rule to build %.o).
+# Create a FAT32 disk image from a binary payload.
 # The payload is stored in the VBR of the unique FAT32 partition.
 # A CSM wrapper is added to the image to allow legacy BIOS booting from a UEFI. 
 
