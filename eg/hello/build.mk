@@ -214,8 +214,8 @@ hello-uefi.efi : hello-uefi.o
 
 # Pattern rules to build object files.
 
-# %.o : %.asm
-# 	$(NASM) -f elf32 $< -o $@
+%.o : %.asm
+	$(NASM) -f elf32 $< -o $@
 
 %.o : %.S
 	$(AS) --32 $< -o $@
@@ -278,6 +278,7 @@ imgs =       04 05 06 07 08 09 10
 
 test:
 	@make clean
-	@make $(bins:%=hello-%.bin) $(imgs:%=hello-%-floppy.img) $(imgs:%=hello-%-disk.img)
+#	@make $(bins:%=hello-%.bin) $(imgs:%=hello-%-floppy.img) $(imgs:%=hello-%-disk.img)
+	@make $(bins:%=hello-%.bin/bios) $(imgs:%=hello-%-floppy.img/bios) $(imgs:%=hello-%-disk.img/bios)
 	@echo "--------------------------------------------------------"
 	@echo "All images built"
