@@ -124,7 +124,6 @@ hello-07.bin : hello-07.asm
 hello-07vram.bin : hello-07vram.asm
 	$(NASM) -f bin $< -DORG=0x7c00 -o $@
 
-
 # Like hello-07.asm but including rt0.asm.
 
 hello-08.bin : hello-08.asm
@@ -169,6 +168,11 @@ extra-02b.bin : extra-02b.o extra-02b-rt0.o extra-02b.ld
 	$(SYSEG_LD) -melf_i386 -T extra-02b.ld $< -o $@
 
 
+extra-04a.o extra-04b.o extra-04-rt0.o : %.o : %.S
+	$(AS) --32 -msyntax=intel -mnaked-reg $< -o $@
+
+# extra-03.bin : like hello-11, but using local symbols
+
 # Temporary examples for testing the build system. 
 
 hello-bios.bin : hello-bios.o
@@ -212,7 +216,7 @@ hello-uefi.efi : hello-uefi.o
 
 %.bin : %a.o %b.o %-rt0.o %.ld
 	$(SYSEG_LD) -melf_i386 --defsym ORG=$(ORG) -T $*.ld $*a.o $*b.o -o $@
-	
+
 ##
 ## These rules are used by bintools to build floppy/disk variants.
 ##
